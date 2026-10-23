@@ -1,11 +1,12 @@
 // =========================================================================
-// PROTOCOL OS: ZERO-KNOWLEDGE ENCRYPTION & DECOUPLED FIREBASE SYNC ENGINE
+// PROTOCOL OS: ZERO-KNOWLEDGE FIREBASE ENCRYPTED CLOUD SYNC ENGINE
 // =========================================================================
 
 let firestoreDb = null;
 let activeCryptoKey = null;
 let syncDebounceTimer = null;
 
+// Base64 helpers safe for large workout & photo payload strings
 function bufferToBase64(buf) {
   const bytes = new Uint8Array(buf);
   let binary = '';
@@ -24,7 +25,7 @@ function base64ToBuffer(base64) {
   return bytes;
 }
 
-// PBKDF2 Key Derivation (100,000 iterations SHA-256)
+// 1. Derive 256-Bit AES Key using PBKDF2 (100,000 iterations)
 async function deriveEncryptionKey(passphrase, saltBuffer) {
   const enc = new TextEncoder();
   const keyMaterial = await window.crypto.subtle.importKey(
@@ -49,10 +50,10 @@ async function deriveEncryptionKey(passphrase, saltBuffer) {
   );
 }
 
-// AES-GCM 256-bit Encryption
+// 2. Encrypt Payload Client-Side
 async function encryptVaultPayload(payloadObject, key) {
   const enc = new TextEncoder();
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const iv = window.crypto.getRandomValues(new Uint8Array(12)); // 96-bit AES-GCM IV
   const encoded = enc.encode(JSON.stringify(payloadObject));
 
   const cipherBuffer = await window.crypto.subtle.encrypt(
@@ -67,7 +68,7 @@ async function encryptVaultPayload(payloadObject, key) {
   };
 }
 
-// AES-GCM 256-bit Decryption
+// 3. Decrypt Payload Client-Side
 async function decryptVaultPayload(ciphertextBase64, ivBase64, key) {
   const dec = new TextDecoder();
   const cipherBytes = base64ToBuffer(ciphertextBase64);
@@ -82,11 +83,8 @@ async function decryptVaultPayload(ciphertextBase64, ivBase64, key) {
   return JSON.parse(dec.decode(decryptedBuffer));
 }
 
-// Configuration pulled cleanly from local storage without hardcoded keys
+// 4. Initialize Firebase App
 function getFirebaseConfig() {
-  if (window.PROTOCOL_FIREBASE_CONFIG) {
-    return window.PROTOCOL_FIREBASE_CONFIG;
-  }
   return JSON.parse(localStorage.getItem('protocol_firebase_config') || 'null');
 }
 
@@ -102,8 +100,8 @@ function initFirebaseClient() {
   return false;
 }
 
-// Authenticate Vault
-async function unlockOrRegisterFirebaseVault(userId, passphrase, pastedConfig) {
+// 5. Connect or Restore Vault
+async function unlockOrRegisterFirebaseVault(userId, passphrase, rawConfigInput) {
   userId = userId.trim().toLowerCase();
   passphrase = passphrase.trim();
 
@@ -112,39 +110,38 @@ async function unlockOrRegisterFirebaseVault(userId, passphrase, pastedConfig) {
     return false;
   }
 
-  if (pastedConfig && pastedConfig.trim()) {
+  // Parse config (accepts either raw JSON or pasted JS object text)
+  let configObj = getFirebaseConfig();
+  if (rawConfigInput && rawConfigInput.trim()) {
     try {
-      const cleanJson = pastedConfig
+      const cleanJson = rawConfigInput
         .replace(/const\s+firebaseConfig\s*=\s*/g, '')
         .replace(/;/g, '')
         .replace(/([a-zA-Z0-9_]+):/g, '"$1":')
         .replace(/'/g, '"')
         .trim();
-      const parsed = JSON.parse(cleanJson);
-      localStorage.setItem('protocol_firebase_config', JSON.stringify(parsed));
+      configObj = JSON.parse(cleanJson);
+      localStorage.setItem('protocol_firebase_config', JSON.stringify(configObj));
     } catch (e) {
-      alert("Invalid Firebase Config syntax. Paste the full configuration object.");
+      alert("Invalid Firebase Config syntax. Paste the full { apiKey: ... } object.");
       return false;
     }
   }
 
-  const activeCfg = getFirebaseConfig();
-  if (!activeCfg) {
-    alert("Missing Firebase configuration. Please paste your config in the setup dropdown.");
+  if (!configObj) {
+    alert("Please paste your Firebase configuration.");
     return false;
   }
 
   localStorage.setItem('protocol_sync_userId', userId);
-  if (!initFirebaseClient()) {
-    alert("Could not initialize Firebase with the provided configuration.");
-    return false;
-  }
+  initFirebaseClient();
 
   try {
     const docRef = firestoreDb.collection('protocol_vault').doc(userId);
     const docSnap = await docRef.get();
 
     if (docSnap.exists) {
+      // Existing cloud data found: Decrypt and restore
       const data = docSnap.data();
       const saltBuffer = base64ToBuffer(data.salt);
       const key = await deriveEncryptionKey(passphrase, saltBuffer);
@@ -156,6 +153,7 @@ async function unlockOrRegisterFirebaseVault(userId, passphrase, pastedConfig) {
         throw new Error("Invalid Master Passphrase! Decryption failed.");
       }
 
+      // Rehydrate local variables and storage
       if (decrypted.appData) appData = decrypted.appData;
       if (decrypted.userGoals) userGoals = decrypted.userGoals;
       if (decrypted.workoutHistory) workoutHistory = decrypted.workoutHistory;
@@ -170,11 +168,12 @@ async function unlockOrRegisterFirebaseVault(userId, passphrase, pastedConfig) {
       sessionStorage.setItem('protocol_active_pass', passphrase);
 
       persist();
-      alert("Cloud Vault Decrypted! State restored.");
+      alert(`Cloud Vault Decrypted! All workouts, weights, and logs restored.`);
       closeSyncModal();
       return true;
 
     } else {
+      // New user vault: Initialize salt and push current state
       const saltBuffer = window.crypto.getRandomValues(new Uint8Array(16));
       const saltBase64 = bufferToBase64(saltBuffer);
       const key = await deriveEncryptionKey(passphrase, saltBuffer);
@@ -194,7 +193,7 @@ async function unlockOrRegisterFirebaseVault(userId, passphrase, pastedConfig) {
   }
 }
 
-// Background Sync
+// 6. Push Encrypted Backup (Called automatically in the background)
 async function pushEncryptedBackupToFirebase() {
   const userId = localStorage.getItem('protocol_sync_userId');
   if (!userId || !initFirebaseClient()) return;
@@ -258,9 +257,8 @@ function openSyncModal() {
   if (!modal) return;
   document.getElementById('syncInputUserId').value = localStorage.getItem('protocol_sync_userId') || '';
   const existingCfg = getFirebaseConfig();
-  const configTextarea = document.getElementById('syncInputConfig');
-  if (configTextarea && existingCfg) {
-    configTextarea.value = JSON.stringify(existingCfg, null, 2);
+  if (existingCfg) {
+    document.getElementById('syncInputConfig').value = JSON.stringify(existingCfg, null, 2);
   }
   modal.classList.remove('hidden');
 }

@@ -1,7 +1,6 @@
 // ==========================================
 // TODAY TAB LOGIC, DECONSTRUCTION & KEY ROTATION
 // ==========================================
-
 const mealImages = { m_breakfast: [], m_lunch: [], m_dinner: [], m_snacks: [] };
 
 function renderTodayTab(rec) {

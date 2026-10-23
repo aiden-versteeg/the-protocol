@@ -1,7 +1,6 @@
 // ==========================================
 // STATE MANAGEMENT & DATA PERSISTENCE
 // ==========================================
-
 function getDayKey(date) {
   const d = new Date(date);
   const year = d.getFullYear();

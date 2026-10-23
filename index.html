@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Protocol | Athletics & Engineering OS</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Protocol OS" />
+  <meta name="theme-color" content="#090d16" />
+
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Firebase Compat SDKs (Zero Bundler) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      background-color: #090d16;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    input, textarea, select, button { outline: none; }
+    .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="min-h-screen flex justify-center pb-28">
+
+<div class="w-full max-w-xl px-4 pt-6">
+
+  <!-- MASTER HEADER -->
+  <header class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-black tracking-tight text-white flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        PROTOCOL OS
+      </h1>
+      <div id="protocolStartNotice" class="text-[11px] text-emerald-400 font-semibold tracking-wide mt-0.5"></div>
+    </div>
+
+    <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 p-1 rounded-xl shadow-lg">
+      <button onclick="openSyncModal()" title="Encrypted Cloud Vault" class="p-1.5 text-slate-400 hover:text-white rounded-lg flex items-center gap-1.5">
+        <span id="cloudSyncStatusDot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+        <i data-lucide="cloud" class="w-4 h-4"></i>
+      </button>
+      <button onclick="toggleSettingsModal()" title="Macro Goals & Settings" class="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg">
+        <i data-lucide="sliders" class="w-4 h-4"></i>
+      </button>
+      <button onclick="exportData()" title="Backup All Data (JSON)" class="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg">
+        <i data-lucide="download" class="w-4 h-4"></i>
+      </button>
+      <label title="Restore Data (JSON)" class="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg cursor-pointer">
+        <i data-lucide="upload" class="w-4 h-4"></i>
+        <input type="file" id="importInput" onchange="importData(event)" class="hidden" accept=".json" />
+      </label>
+    </div>
+  </header>
+
+  <!-- 4-TAB NAVIGATION BAR -->
+  <nav class="grid grid-cols-4 gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-2xl mb-4 shadow-xl">
+    <button id="navBtn_today" onclick="switchMainTab('today')" class="py-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+      <i data-lucide="calendar" class="w-3.5 h-3.5"></i><span>Today</span>
+    </button>
+    <button id="navBtn_matrix" onclick="switchMainTab('matrix')" class="py-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200">
+      <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i><span>Matrix</span>
+    </button>
+    <button id="navBtn_athletics" onclick="switchMainTab('athletics')" class="py-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200">
+      <i data-lucide="dumbbell" class="w-3.5 h-3.5"></i><span>Athletics</span>
+    </button>
+    <button id="navBtn_academics" onclick="switchMainTab('academics')" class="py-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200">
+      <i data-lucide="cpu" class="w-3.5 h-3.5"></i><span>Academics</span>
+    </button>
+  </nav>
+
+  <!-- TAB MOUNT POINTS -->
+  <section id="view_today" class="space-y-4"></section>
+  <section id="view_matrix" class="hidden space-y-4"></section>
+  <section id="view_athletics" class="hidden space-y-4"></section>
+  <section id="view_academics" class="hidden space-y-4"></section>
+
+</div>
+
+<!-- FULL-SCREEN IMMERSIVE WORKOUT OVERLAY -->
+<div id="fullScreenWorkoutOverlay" class="hidden fixed inset-0 z-50 bg-[#090d16] flex flex-col overflow-hidden"></div>
+
+<!-- EXERCISE LIBRARY SELECTION MODAL -->
+<div id="exerciseModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-4 space-y-3 flex flex-col max-h-[85vh]">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+      <h3 class="text-sm font-bold text-white flex items-center gap-2">
+        <i data-lucide="dumbbell" class="w-4 h-4 text-orange-400"></i>
+        UCSB MAC Exercise Library
+      </h3>
+      <button onclick="closeExerciseModal()" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+    <input type="text" id="exerciseSearchInput" placeholder="Search MAC lifts, cables, machines..." oninput="filterExerciseLibrary(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500" />
+    <div class="flex gap-1 overflow-x-auto pb-1 text-[9px] custom-scroll">
+      <button onclick="setExerciseCategory('all')" class="px-2 py-1 rounded-md bg-slate-800 text-slate-200 shrink-0 font-bold">All</button>
+      <button onclick="setExerciseCategory('Chest')" class="px-2 py-1 rounded-md bg-slate-800 text-slate-400 shrink-0 font-bold">Chest</button>
+      <button onclick="setExerciseCategory('Back')" class="px-2 py-1 rounded-md bg-slate-800 text-slate-400 shrink-0 font-bold">Back</button>
+      <button onclick="setExerciseCategory('Shoulders')" class="px-2 py-1 rounded-md bg-slate-800 text-slate-400 shrink-0 font-bold">Shoulders</button>
+      <button onclick="setExerciseCategory('Legs')" class="px-2 py-1 rounded-md bg-slate-800 text-slate-400 shrink-0 font-bold">Legs</button>
+      <button onclick="setExerciseCategory('Arms')" class="px-2 py-1 rounded-md bg-slate-800 text-slate-400 shrink-0 font-bold">Arms</button>
+      <button onclick="setExerciseCategory('Core & Climbing')" class="px-2 py-1 rounded-md bg-slate-800 text-slate-400 shrink-0 font-bold">Core & Climbing</button>
+    </div>
+    <div id="exerciseLibraryList" class="flex-1 overflow-y-auto space-y-1.5 custom-scroll pr-1"></div>
+  </div>
+</div>
+
+<!-- SETTINGS & BIOMETRICS MODAL -->
+<div id="settingsModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto custom-scroll">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+      <h3 class="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="sliders" class="w-4 h-4 text-emerald-400"></i>Settings & Biometrics</h3>
+      <button onclick="toggleSettingsModal()" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+    
+    <div class="space-y-3 text-xs">
+      <div>
+        <label class="block text-emerald-400 font-bold mb-1">Protocol Start Date</label>
+        <input type="date" id="settingStartDate" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" />
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="block text-slate-400 mb-1">Height (inches)</label><input type="number" id="settingHeight" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" /></div>
+        <div><label class="block text-slate-400 mb-1">Age</label><input type="number" id="settingAge" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" /></div>
+      </div>
+      <div><label class="block text-slate-400 mb-1">Base Target Calories</label><input type="number" id="settingGoalCal" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" /></div>
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="block text-amber-400 mb-1">Prot (g)</label><input type="number" id="settingGoalProt" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" /></div>
+        <div><label class="block text-cyan-400 mb-1">Carb (g)</label><input type="number" id="settingGoalCarb" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" /></div>
+        <div><label class="block text-rose-400 mb-1">Fat (g)</label><input type="number" id="settingGoalFat" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" /></div>
+      </div>
+
+      <!-- WORKOUT & REST SETTINGS -->
+      <div class="bg-slate-950/80 border border-orange-500/30 rounded-xl p-3 space-y-2">
+        <div class="flex items-center gap-1.5 text-orange-400 font-bold">
+          <i data-lucide="timer" class="w-3.5 h-3.5"></i>
+          <span>Workout & Hypertrophy Rest Settings</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-400 text-[10px] mb-1">Default Rest (seconds)</label>
+            <input type="number" id="settingDefaultRest" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-bold text-center" />
+          </div>
+          <div class="flex items-center pt-3">
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300 font-semibold text-[11px]">
+              <input type="checkbox" id="settingAdaptiveRest" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-orange-500 accent-orange-500" />
+              <span>Adaptive Rest Mode</span>
+            </label>
+          </div>
+        </div>
+        <p class="text-[9px] text-slate-400 leading-normal">
+          <span class="text-orange-400 font-bold">Adaptive Mode:</span> 180s for heavy compounds (squat, deadlift, bench), 120s for secondary presses/rows, 75s for isolations.
+        </p>
+      </div>
+
+      <!-- ROTATING GEMINI KEY POOL -->
+      <details class="group bg-slate-950/80 border border-purple-500/30 rounded-xl p-3 space-y-2">
+        <summary class="flex items-center justify-between cursor-pointer">
+          <div class="flex items-center gap-1.5 text-purple-300 font-bold">
+            <i data-lucide="key" class="w-3.5 h-3.5 text-purple-400"></i>
+            <span>Gemini API Key Pool (Auto-Rotating)</span>
+          </div>
+          <span id="keyPoolCountBadge" class="text-[9px] px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800">0 Keys</span>
+        </summary>
+        <p class="text-[10px] text-slate-400 pt-2 leading-relaxed">
+          Keys rotate client-side on quota limits. Kept safely in device memory.
+        </p>
+        <div class="flex gap-1.5 pt-1">
+          <input type="password" id="newKeyPoolInput" placeholder="Paste Gemini API key..." class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-slate-600" />
+          <button type="button" onclick="addApiKeyToPool()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-[10px] transition shrink-0">
+            + Add Key
+          </button>
+        </div>
+        <div id="apiKeysPoolList" class="space-y-1.5 pt-1"></div>
+      </details>
+    </div>
+
+    <button onclick="saveSettings()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition">Save Preferences</button>
+  </div>
+</div>
+
+<!-- ZERO-KNOWLEDGE CLOUD SYNC MODAL -->
+<div id="cloudSyncModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto custom-scroll">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+      <div class="flex items-center gap-2">
+        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+        <h3 class="text-sm font-black text-white">Encrypted Cloud Vault</h3>
+      </div>
+      <button onclick="closeSyncModal()" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <p class="text-[10px] text-slate-400 leading-normal">
+      Scrambled via <strong>AES-GCM 256-bit</strong> client-side. The cloud only ever sees ciphertext.
+    </p>
+
+    <div class="space-y-3 text-xs">
+      <div>
+        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">User ID / Locker Name</label>
+        <input type="text" id="syncInputUserId" placeholder="e.g. aiden" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" />
+      </div>
+      <div>
+        <label class="block text-emerald-400 text-[10px] uppercase font-bold mb-1">Master Decryption Passphrase</label>
+        <input type="password" id="syncInputPassphrase" placeholder="Your secret password" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold" />
+      </div>
+
+      <!-- LOCAL CONFIG PERSISTENCE (NOT IN GIT) -->
+      <details class="group bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
+        <summary class="cursor-pointer text-[10px] text-slate-400 font-bold flex items-center justify-between">
+          <span>Firebase Project Setup (Stored on Device)</span>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500 group-open:rotate-180"></i>
+        </summary>
+        <div class="pt-2 space-y-1.5">
+          <p class="text-[9px] text-slate-500 leading-normal">
+            Paste your Firebase config object once. Stored in device local storage only.
+          </p>
+          <textarea id="syncInputConfig" rows="4" placeholder='{ "apiKey": "...", "projectId": "..." }' class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-[10px] font-mono text-cyan-300 placeholder-slate-600 resize-none"></textarea>
+        </div>
+      </details>
+    </div>
+
+    <button onclick="unlockOrRegisterFirebaseVault(document.getElementById('syncInputUserId').value, document.getElementById('syncInputPassphrase').value, document.getElementById('syncInputConfig').value)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-lg transition">
+      Unlock / Sync Cloud Vault
+    </button>
+  </div>
+</div>
+
+<!-- APPLICATION SCRIPTS -->
+<script src="state.js"></script>
+<script src="sync.js"></script>
+<script src="today.js"></script>
+<script src="matrix.js"></script>
+<script src="athletics.js"></script>
+<script src="academics.js"></script>
+
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    initApp();
+  });
+</script>
+</body>
+</html>

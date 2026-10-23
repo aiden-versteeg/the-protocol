@@ -1,7 +1,6 @@
 // =========================================================================
 // ATHLETICS ENGINE: UCSB MAC DATABASE, ADAPTIVE REST, MUSCLE HEATMAP & AI COACH
 // =========================================================================
-
 const DEFAULT_PRESETS = {
   push1: { title: "Push A (Chest/Delts/Tri)", exercises: ["barbell_bench", "overhead_press", "incline_db_bench", "cable_lateral_raise", "tricep_rope_pushdown"] },
   pull1: { title: "Pull A (Lats/Upper Back/Bi)", exercises: ["pullups", "barbell_row", "chest_supported_tbar", "cable_face_pull", "incline_db_curl", "hammer_curls"] },

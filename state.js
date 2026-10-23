@@ -1,343 +1,272 @@
-// ==========================================
-// STATE MANAGEMENT & DATA PERSISTENCE
-// ==========================================
+// =========================================================================
+// PROTOCOL OS: ZERO-KNOWLEDGE FIREBASE ENCRYPTED CLOUD SYNC ENGINE
+// =========================================================================
 
-function getDayKey(date) {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+let firestoreDb = null;
+let activeCryptoKey = null;
+let syncDebounceTimer = null;
 
-let START_DATE_KEY = localStorage.getItem('protocol_start_date');
-if (!START_DATE_KEY) {
-  START_DATE_KEY = getDayKey(new Date());
-  localStorage.setItem('protocol_start_date', START_DATE_KEY);
-}
-
-const BOUNDARIES = [
-  { id: "b_morning_phone", label: "Zero Phone First 60 Min", desc: "No notifications or screen dopamine upon waking" },
-  { id: "b_sugar", label: "No Sugar", desc: "Zero added sugar or sweets" },
-  { id: "b_porn", label: "No Porn", desc: "Absolute zero-tolerance boundary" },
-  { id: "b_processed", label: "No Processed Outside Dining Hall", desc: "Whole clean fuel only" },
-  { id: "b_alcohol", label: "No Alcohol", desc: "Zero alcohol consumption" },
-  { id: "b_scrolling", label: "No Scrolling of Any Form", desc: "Zero feed browsing (IG, TikTok, X, Reels)" },
-  { id: "b_youtube", label: "No YouTube", desc: "Zero distraction rabbit holes" },
-  { id: "b_fakeprod", label: "No Fake Productivity", desc: "Real deep engineering/coursework only" },
-  { id: "b_stupid_ai", label: "No Stupid AI Questions", desc: "Think deeply through problems first" },
-  { id: "b_touch_face", label: "Keep Hands Off Face", desc: "Protect skin pores from oil transfer" }
-];
-
-const DAILY_ACTIONS = [
-  { id: "a_creatine", label: "5g Creatine Monohydrate", desc: "Daily saturation & muscular power" },
-  { id: "a_cardio", label: "Light Cardio Everyday", desc: "Zone 2 walk, run, swim, or cycle" },
-  { id: "a_water", label: "3+ Liters Water + Electrolytes", desc: "Tracked automatically via bottles", isWaterLinked: true },
-  { id: "a_protein", label: "Hit Protein Target (160g+)", desc: "Calculated from meal logs", isProteinLinked: true },
-  { id: "a_sleep", label: "Circadian Schedule (Sleep 12–12:30 AM)", desc: "Maintain sleep/wake rhythm", weekdayOnly: true },
-  { id: "a_shower", label: "Shower Post-Workout", desc: "Wash away sweat to prevent breakouts" }
-];
-
-const MEALS = [
-  { id: "m_breakfast", label: "Breakfast" },
-  { id: "m_lunch", label: "Lunch" },
-  { id: "m_dinner", label: "Dinner" },
-  { id: "m_snacks", label: "Post-Workout / Snacks" }
-];
-
-let currentDate = new Date();
-let currentMainTab = 'today';
-let appData = JSON.parse(localStorage.getItem('protocol_os_master') || '{}');
-let workoutHistory = JSON.parse(localStorage.getItem('protocol_os_workout_history') || '{}');
-
-// Custom user presets stored in localStorage
-let customPresets = JSON.parse(localStorage.getItem('protocol_os_presets') || 'null');
-
-let userGoals = JSON.parse(localStorage.getItem('protocol_os_goals') || '{}');
-userGoals = Object.assign({
-  calories: 2600,
-  protein: 160,
-  carbs: 300,
-  fat: 70,
-  height: 71,
-  age: 19,
-  surplus: 250,
-  apiKeys: [],
-  activeKeyIndex: 0,
-  defaultRestSeconds: 90,
-  adaptiveRestEnabled: true
-}, userGoals);
-
-if (userGoals.apiKey && (!userGoals.apiKeys || userGoals.apiKeys.length === 0)) {
-  userGoals.apiKeys = [userGoals.apiKey.trim()];
-}
-
-function isDateBeforeStart(date) { return getDayKey(date) < START_DATE_KEY; }
-function isDateInFuture(date) { 
-  const today = new Date(); today.setHours(0,0,0,0);
-  const target = new Date(date); target.setHours(0,0,0,0);
-  return target > today;
-}
-
-function getDayRecord(dateKey) {
-  if (!appData[dateKey]) {
-    appData[dateKey] = {
-      boundaries: {}, actions: {}, water: { b1000: 0, b710: 0 }, weight: null, pt: false, prehab: false, climbing: false, drone: { done: false, notes: '' },
-      customTasks: [],
-      meals: {
-        m_breakfast: { text: '', cal: 0, p: 0, c: 0, f: 0, diningHall: 'DLG', portion: '1.0', isUcsb: true, items: [] },
-        m_lunch: { text: '', cal: 0, p: 0, c: 0, f: 0, diningHall: 'DLG', portion: '1.0', isUcsb: true, items: [] },
-        m_dinner: { text: '', cal: 0, p: 0, c: 0, f: 0, diningHall: 'DLG', portion: '1.0', isUcsb: true, items: [] },
-        m_snacks: { text: '', cal: 0, p: 0, c: 0, f: 0, diningHall: 'DLG', portion: '1.0', isUcsb: false, items: [] }
-      },
-      workout: { 
-        title: "Custom Session", 
-        completed: false, 
-        startTime: null, 
-        durationSeconds: 0, 
-        restEndTime: null, 
-        exercises: [] 
-      },
-      academics: { courseNotes: [], brainstorms: [] }
-    };
+function bufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
-
-  const rec = appData[dateKey];
-  if (!rec.customTasks) rec.customTasks = [];
-  if (!rec.academics) rec.academics = { courseNotes: [], brainstorms: [] };
-  if (!rec.academics.courseNotes) rec.academics.courseNotes = [];
-  if (!rec.academics.brainstorms) rec.academics.brainstorms = [];
-  if (!rec.workout) rec.workout = { title: "Custom Session", completed: false, startTime: null, durationSeconds: 0, restEndTime: null, exercises: [] };
-  if (!rec.workout.exercises) rec.workout.exercises = [];
-  if (!rec.drone) rec.drone = { done: false, notes: '' };
-  if (!rec.water) rec.water = { b1000: 0, b710: 0 };
-  if (!rec.meals) rec.meals = {};
-
-  return rec;
+  return btoa(binary);
 }
 
-function persist() {
-  localStorage.setItem('protocol_os_master', JSON.stringify(appData));
-  localStorage.setItem('protocol_os_workout_history', JSON.stringify(workoutHistory));
-  if (customPresets) localStorage.setItem('protocol_os_presets', JSON.stringify(customPresets));
-  render();
+function base64ToBuffer(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }
 
-function shiftDate(days) {
-  currentDate.setDate(currentDate.getDate() + days);
-  render();
+async function deriveEncryptionKey(passphrase, saltBuffer) {
+  const enc = new TextEncoder();
+  const keyMaterial = await window.crypto.subtle.importKey(
+    "raw",
+    enc.encode(passphrase),
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"]
+  );
+
+  return window.crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: saltBuffer,
+      iterations: 100000,
+      hash: "SHA-256"
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
 }
 
-function switchMainTab(tab) {
-  currentMainTab = tab;
-  ['today', 'matrix', 'athletics', 'academics'].forEach(t => {
-    const el = document.getElementById(`view_${t}`);
-    if (el) el.classList.toggle('hidden', t !== tab);
-    const btn = document.getElementById(`navBtn_${t}`);
-    if (btn) {
-      btn.className = (t === tab)
-        ? "py-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-        : "py-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200";
+async function encryptVaultPayload(payloadObject, key) {
+  const enc = new TextEncoder();
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encoded = enc.encode(JSON.stringify(payloadObject));
+
+  const cipherBuffer = await window.crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    encoded
+  );
+
+  return {
+    ciphertext: bufferToBase64(cipherBuffer),
+    iv: bufferToBase64(iv)
+  };
+}
+
+async function decryptVaultPayload(ciphertextBase64, ivBase64, key) {
+  const dec = new TextDecoder();
+  const cipherBytes = base64ToBuffer(ciphertextBase64);
+  const ivBytes = base64ToBuffer(ivBase64);
+
+  const decryptedBuffer = await window.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: ivBytes },
+    key,
+    cipherBytes
+  );
+
+  return JSON.parse(dec.decode(decryptedBuffer));
+}
+
+function getFirebaseConfig() {
+  return JSON.parse(localStorage.getItem('protocol_firebase_config') || 'null');
+}
+
+function initFirebaseClient() {
+  const cfg = getFirebaseConfig();
+  if (cfg && cfg.apiKey && window.firebase) {
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(cfg);
+      }
+      firestoreDb = firebase.firestore();
+      return true;
+    } catch (e) {
+      console.error("Firebase init failed:", e);
+      return false;
     }
-  });
-  render();
-}
-
-function getWaterVolume(water) { 
-  return ((water?.b1000 || 0) * 1000) + ((water?.b710 || 0) * 710); 
-}
-
-function syncAutomations(rec) {
-  rec.actions['a_water'] = getWaterVolume(rec.water) >= 3000;
-  rec.actions['a_protein'] = Object.values(rec.meals).reduce((s, m) => s + (Number(m.p) || 0), 0) >= (userGoals.protein || 160);
-}
-
-function evaluateDayStatus(rec, date) {
-  if (isDateBeforeStart(date)) return "unactivated";
-  if (isDateInFuture(date)) return "locked";
-  if (Object.values(rec.boundaries || {}).some(v => v === true)) return "breached";
-
-  const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
-  const dailyActionsDone = DAILY_ACTIONS.every(a => (a.weekdayOnly && isWeekend) || rec.actions[a.id]);
-  const morningTasksDone = !rec.customTasks || rec.customTasks.every(t => t.done);
-
-  return (dailyActionsDone && morningTasksDone) ? "complete" : "pending";
-}
-
-function getWeekDateKeys(d) {
-  const current = new Date(d);
-  const diff = current.getDate() - current.getDay() + (current.getDay() === 0 ? -6 : 1);
-  const monday = new Date(current.setDate(diff));
-  const keys = [];
-  for (let i = 0; i < 7; i++) {
-    const nextDay = new Date(monday);
-    nextDay.setDate(monday.getDate() + i);
-    keys.push(getDayKey(nextDay));
   }
-  return keys;
+  return false;
 }
 
-function getWeeklyStat(metricKey, date) {
-  return getWeekDateKeys(date).reduce((acc, k) => {
-    const rec = appData[k];
-    if (!rec) return acc;
-    if (metricKey === 'drone') return acc + (rec.drone?.done ? 1 : 0);
-    if (metricKey === 'pt') return acc + (rec.pt ? 1 : 0);
-    if (metricKey === 'prehab') return acc + (rec.prehab ? 1 : 0);
-    return acc;
-  }, 0);
-}
+function handleSyncFormSubmit() {
+  const userId = document.getElementById('syncInputUserId')?.value?.trim().toLowerCase() || '';
+  const passphrase = document.getElementById('syncInputPassphrase')?.value?.trim() || '';
 
-// API Key Management
-function addApiKeyToPool() {
-  const input = document.getElementById('newKeyPoolInput');
-  const val = input.value.trim();
-  if (!val) return;
-  if (!userGoals.apiKeys) userGoals.apiKeys = [];
-  if (!userGoals.apiKeys.includes(val)) {
-    userGoals.apiKeys.push(val);
-    localStorage.setItem('protocol_os_goals', JSON.stringify(userGoals));
-    input.value = '';
-    renderKeyPoolList();
-  }
-}
+  const configObj = {
+    apiKey: document.getElementById('fb_apiKey')?.value?.trim() || '',
+    authDomain: document.getElementById('fb_authDomain')?.value?.trim() || '',
+    projectId: document.getElementById('fb_projectId')?.value?.trim() || '',
+    storageBucket: document.getElementById('fb_storageBucket')?.value?.trim() || '',
+    messagingSenderId: document.getElementById('fb_messagingSenderId')?.value?.trim() || '',
+    appId: document.getElementById('fb_appId')?.value?.trim() || ''
+  };
 
-function removeApiKeyFromPool(index) {
-  if (!userGoals.apiKeys) return;
-  userGoals.apiKeys.splice(index, 1);
-  if (userGoals.activeKeyIndex >= userGoals.apiKeys.length) {
-    userGoals.activeKeyIndex = 0;
-  }
-  localStorage.setItem('protocol_os_goals', JSON.stringify(userGoals));
-  renderKeyPoolList();
-}
-
-function renderKeyPoolList() {
-  const list = document.getElementById('apiKeysPoolList');
-  const badge = document.getElementById('keyPoolCountBadge');
-  if (!list) return;
-  const keys = userGoals.apiKeys || [];
-  badge.innerText = `${keys.length} Key${keys.length === 1 ? '' : 's'}`;
-  list.innerHTML = '';
-
-  if (keys.length === 0) {
-    list.innerHTML = `<div class="text-[10px] text-slate-500 italic py-1">No API keys in pool. Add at least one to enable Cloud AI parsing.</div>`;
+  if (!userId || !passphrase) {
+    alert("Please enter a User ID and Master Passphrase.");
     return;
   }
 
-  keys.forEach((k, idx) => {
-    const isCurrent = idx === (userGoals.activeKeyIndex % keys.length);
-    const masked = k.slice(0, 7) + '...' + k.slice(-4);
-    const div = document.createElement('div');
-    div.className = `flex items-center justify-between p-2 rounded-lg border text-[11px] ${
-      isCurrent ? 'bg-purple-950/40 border-purple-500/50 text-purple-200' : 'bg-slate-900 border-slate-800 text-slate-400'
-    }`;
-    div.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full ${isCurrent ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
-        <span class="font-mono">${masked}</span>
-        ${isCurrent ? '<span class="text-[8px] px-1 py-0.2 rounded bg-purple-900 text-purple-300 font-bold uppercase">Active</span>' : ''}
-      </div>
-      <button onclick="removeApiKeyFromPool(${idx})" class="text-slate-500 hover:text-rose-400 p-0.5">
-        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-      </button>
-    `;
-    list.appendChild(div);
-  });
-  lucide.createIcons();
+  if (!configObj.apiKey || !configObj.projectId) {
+    alert("Please provide at least the Firebase API Key and Project ID.");
+    return;
+  }
+
+  localStorage.setItem('protocol_firebase_config', JSON.stringify(configObj));
+  unlockOrRegisterFirebaseVault(userId, passphrase, configObj);
 }
 
-// Router
-function render() {
-  const key = getDayKey(currentDate);
-  const rec = getDayRecord(key);
-  syncAutomations(rec);
+async function unlockOrRegisterFirebaseVault(userId, passphrase, configObj) {
+  localStorage.setItem('protocol_sync_userId', userId);
+  
+  if (!initFirebaseClient()) {
+    alert("Could not connect to Firebase. Check API Key and Project ID values.");
+    return false;
+  }
 
-  const startNotice = document.getElementById('protocolStartNotice');
-  if (startNotice) startNotice.innerText = `Protocol Active: ${START_DATE_KEY}`;
+  try {
+    const docRef = firestoreDb.collection('protocol_vault').doc(userId);
+    const docSnap = await docRef.get();
 
-  if (typeof renderTodayTab === 'function') renderTodayTab(rec);
-  if (currentMainTab === 'matrix' && typeof renderMatrixCalendar === 'function') renderMatrixCalendar();
-  if (currentMainTab === 'athletics' && typeof renderAthleticsTab === 'function') renderAthleticsTab(rec);
-  if (currentMainTab === 'academics' && typeof renderAcademicsTab === 'function') renderAcademicsTab(rec);
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      const saltBuffer = base64ToBuffer(data.salt);
+      const key = await deriveEncryptionKey(passphrase, saltBuffer);
 
-  lucide.createIcons();
-}
+      let decrypted;
+      try {
+        decrypted = await decryptVaultPayload(data.ciphertext, data.iv, key);
+      } catch (err) {
+        throw new Error("Invalid Master Passphrase! Decryption failed.");
+      }
 
-function toggleSettingsModal() {
-  const m = document.getElementById('settingsModal');
-  m.classList.toggle('hidden');
-  if (!m.classList.contains('hidden')) {
-    document.getElementById('settingStartDate').value = START_DATE_KEY;
-    document.getElementById('settingHeight').value = userGoals.height || 71;
-    document.getElementById('settingAge').value = userGoals.age || 19;
-    document.getElementById('settingGoalCal').value = userGoals.calories;
-    document.getElementById('settingGoalProt').value = userGoals.protein;
-    document.getElementById('settingGoalCarb').value = userGoals.carbs;
-    document.getElementById('settingGoalFat').value = userGoals.fat;
-    document.getElementById('settingDefaultRest').value = userGoals.defaultRestSeconds || 90;
-    document.getElementById('settingAdaptiveRest').checked = userGoals.adaptiveRestEnabled !== false;
-    renderKeyPoolList();
+      if (decrypted.appData) appData = decrypted.appData;
+      if (decrypted.userGoals) userGoals = decrypted.userGoals;
+      if (decrypted.workoutHistory) workoutHistory = decrypted.workoutHistory;
+      if (decrypted.customPresets) customPresets = decrypted.customPresets;
+      if (decrypted.startDate) {
+        START_DATE_KEY = decrypted.startDate;
+        localStorage.setItem('protocol_start_date', START_DATE_KEY);
+      }
+
+      activeCryptoKey = key;
+      localStorage.setItem('protocol_cached_salt', data.salt);
+      sessionStorage.setItem('protocol_active_pass', passphrase);
+
+      persist();
+      alert(`Cloud Vault Decrypted! All workouts, weights, and logs restored.`);
+      closeSyncModal();
+      return true;
+    } else {
+      const saltBuffer = window.crypto.getRandomValues(new Uint8Array(16));
+      const saltBase64 = bufferToBase64(saltBuffer);
+      const key = await deriveEncryptionKey(passphrase, saltBuffer);
+
+      activeCryptoKey = key;
+      localStorage.setItem('protocol_cached_salt', saltBase64);
+      sessionStorage.setItem('protocol_active_pass', passphrase);
+
+      await pushEncryptedBackupToFirebase();
+      alert(`New encrypted cloud vault initialized for "${userId}". Autosync active!`);
+      closeSyncModal();
+      return true;
+    }
+  } catch (err) {
+    alert("Firebase Sync Error: " + err.message);
+    return false;
   }
 }
 
-function saveSettings() {
-  const newStart = document.getElementById('settingStartDate').value;
-  if (newStart) {
-    START_DATE_KEY = newStart;
-    localStorage.setItem('protocol_start_date', START_DATE_KEY);
+async function pushEncryptedBackupToFirebase() {
+  const userId = localStorage.getItem('protocol_sync_userId');
+  if (!userId || !initFirebaseClient()) return;
+
+  if (!activeCryptoKey) {
+    const saltBase64 = localStorage.getItem('protocol_cached_salt');
+    const pass = sessionStorage.getItem('protocol_active_pass');
+    if (saltBase64 && pass) {
+      activeCryptoKey = await deriveEncryptionKey(pass, base64ToBuffer(saltBase64));
+    } else {
+      return;
+    }
   }
-  userGoals.height = parseInt(document.getElementById('settingHeight').value, 10) || 71;
-  userGoals.age = parseInt(document.getElementById('settingAge').value, 10) || 19;
-  userGoals.calories = parseInt(document.getElementById('settingGoalCal').value, 10) || 2600;
-  userGoals.protein = parseInt(document.getElementById('settingGoalProt').value, 10) || 160;
-  userGoals.carbs = parseInt(document.getElementById('settingGoalCarb').value, 10) || 300;
-  userGoals.fat = parseInt(document.getElementById('settingGoalFat').value, 10) || 70;
-  userGoals.defaultRestSeconds = parseInt(document.getElementById('settingDefaultRest').value, 10) || 90;
-  userGoals.adaptiveRestEnabled = document.getElementById('settingAdaptiveRest').checked;
 
-  localStorage.setItem('protocol_os_goals', JSON.stringify(userGoals));
-  toggleSettingsModal();
-  render();
-}
-
-function exportData() {
   const payload = {
     startDate: START_DATE_KEY,
-    goals: userGoals,
-    data: appData,
+    appData: appData,
+    userGoals: userGoals,
     workoutHistory: workoutHistory,
-    customPresets: customPresets
+    customPresets: customPresets,
+    syncedAt: new Date().toISOString()
   };
-  const a = document.createElement('a');
-  a.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2)));
-  a.setAttribute("download", `protocol_os_backup_${getDayKey(new Date())}.json`);
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+
+  try {
+    const saltBase64 = localStorage.getItem('protocol_cached_salt');
+    const encrypted = await encryptVaultPayload(payload, activeCryptoKey);
+
+    await firestoreDb.collection('protocol_vault').doc(userId).set({
+      user_id: userId,
+      ciphertext: encrypted.ciphertext,
+      iv: encrypted.iv,
+      salt: saltBase64,
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    updateSyncIndicator(true);
+  } catch (err) {
+    console.warn("Background Firebase backup failed:", err);
+    updateSyncIndicator(false);
+  }
 }
 
-function importData(e) {
-  if (!e.target.files[0]) return;
-  const r = new FileReader();
-  r.onload = function(evt) {
-    try {
-      const i = JSON.parse(evt.target.result);
-      if (i.data) {
-        appData = i.data;
-        if (i.goals) userGoals = i.goals;
-        if (i.workoutHistory) workoutHistory = i.workoutHistory;
-        if (i.customPresets) customPresets = i.customPresets;
-        if (i.startDate) {
-          START_DATE_KEY = i.startDate;
-          localStorage.setItem('protocol_start_date', START_DATE_KEY);
-        }
-      } else {
-        appData = i;
-      }
-      persist();
-      alert('Data restored successfully!');
-    } catch (err) { alert('Invalid backup JSON file.'); }
-  };
-  r.readAsText(e.target.files[0]);
+function queueEncryptedSync() {
+  clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => {
+    pushEncryptedBackupToFirebase();
+  }, 1200);
 }
+
+function updateSyncIndicator(isOnline) {
+  const dot = document.getElementById('cloudSyncStatusDot');
+  if (dot) {
+    dot.className = isOnline 
+      ? "w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" 
+      : "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
+  }
+}
+
+function openSyncModal() {
+  const modal = document.getElementById('cloudSyncModal');
+  if (!modal) return;
+  document.getElementById('syncInputUserId').value = localStorage.getItem('protocol_sync_userId') || '';
+  const existingCfg = getFirebaseConfig();
+  if (existingCfg) {
+    document.getElementById('fb_apiKey').value = existingCfg.apiKey || '';
+    document.getElementById('fb_authDomain').value = existingCfg.authDomain || '';
+    document.getElementById('fb_projectId').value = existingCfg.projectId || '';
+    document.getElementById('fb_storageBucket').value = existingCfg.storageBucket || '';
+    document.getElementById('fb_messagingSenderId').value = existingCfg.messagingSenderId || '';
+    document.getElementById('fb_appId').value = existingCfg.appId || '';
+  }
+  modal.classList.remove('hidden');
+}
+
+function closeSyncModal() {
+  const modal = document.getElementById('cloudSyncModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  initFirebaseClient();
+});

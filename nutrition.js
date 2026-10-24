@@ -457,35 +457,3 @@ function updateMealField(mId, field, val) {
   syncAutomations(rec);
   persist();
 }
-
-function computeDynamicCalories(rec) {
-  let w = rec.weight;
-  if (!w) {
-    const datesWithW = Object.keys(appData).filter(k => appData[k].weight).sort();
-    w = datesWithW.length ? appData[datesWithW[datesWithW.length - 1]].weight : 165;
-  }
-  const hIn = userGoals.height || 71;
-  const age = userGoals.age || 19;
-  const surplus = userGoals.surplus || 250;
-
-  const wKg = w * 0.453592;
-  const hCm = hIn * 2.54;
-  const bmr = (10 * wKg) + (6.25 * hCm) - (5 * age) + 5;
-  const neat = bmr * 0.20;
-
-  let exercise = 0;
-  if (rec.workout?.completed) exercise += 300;
-  if (rec.actions?.['a_cardio']) exercise += 200;
-  if (rec.climbing) exercise += 350;
-
-  const total = Math.round(bmr + neat + exercise + surplus);
-  return { bmr: Math.round(bmr), neat: Math.round(neat), exercise, surplus, total };
-}
-
-function applyDynamicCalorieGoal() {
-  const rec = getDayRecord(getDayKey(currentDate));
-  const calc = computeDynamicCalories(rec);
-  userGoals.calories = calc.total;
-  localStorage.setItem('protocol_os_goals', JSON.stringify(userGoals));
-  persist();
-}

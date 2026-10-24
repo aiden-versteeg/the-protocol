@@ -1,6 +1,7 @@
-// =========================================================================
+// ============================================================================
 // ATHLETICS ENGINE: UCSB MAC DATABASE, ADAPTIVE REST, MUSCLE HEATMAP & AI COACH
-// =========================================================================
+// ============================================================================
+
 const DEFAULT_PRESETS = {
   push1: { title: "Push A (Chest/Delts/Tri)", exercises: ["barbell_bench", "overhead_press", "incline_db_bench", "cable_lateral_raise", "tricep_rope_pushdown"] },
   pull1: { title: "Pull A (Lats/Upper Back/Bi)", exercises: ["pullups", "barbell_row", "chest_supported_tbar", "cable_face_pull", "incline_db_curl", "hammer_curls"] },
@@ -93,7 +94,6 @@ const MUSCLE_MAPPING = {
   chest_dips: { chest: 0.8, triceps: 0.8, front_delt: 0.4 },
   flat_db_bench: { chest: 1.0, triceps: 0.4 },
   machine_chest_press: { chest: 1.0, triceps: 0.4 },
-
   barbell_deadlift: { hamstrings: 0.8, glutes: 0.8, lower_back: 1.0, lats: 0.5, traps: 0.6, forearms: 0.5 },
   barbell_row: { lats: 0.8, rhomboids: 1.0, traps: 0.6, biceps: 0.4 },
   pullups: { lats: 1.0, biceps: 0.6, rear_delt: 0.4 },
@@ -106,7 +106,6 @@ const MUSCLE_MAPPING = {
   lat_prayer: { lats: 1.0 },
   db_row_single: { lats: 1.0, rhomboids: 0.6 },
   db_shrugs: { traps: 1.0 },
-
   overhead_press: { front_delt: 1.0, side_delt: 0.6, triceps: 0.6, core: 0.3 },
   seated_db_press: { front_delt: 0.9, side_delt: 0.6, triceps: 0.5 },
   hammer_shoulder_press: { front_delt: 0.9, side_delt: 0.5, triceps: 0.5 },
@@ -115,7 +114,6 @@ const MUSCLE_MAPPING = {
   cable_face_pull: { rear_delt: 1.0, traps: 0.5 },
   rear_delt_flye: { rear_delt: 1.0 },
   arnold_press: { front_delt: 0.8, side_delt: 0.6, triceps: 0.4 },
-
   barbell_squat: { quads: 1.0, glutes: 0.8, core: 0.4 },
   front_squat: { quads: 1.0, core: 0.6 },
   hack_squat: { quads: 1.0, glutes: 0.4 },
@@ -127,7 +125,6 @@ const MUSCLE_MAPPING = {
   seated_leg_curl: { hamstrings: 1.0 },
   standing_calf_raise: { calves: 1.0 },
   copenhagen_plank: { core: 0.6, groin: 1.0 },
-
   barbell_curl: { biceps: 1.0, forearms: 0.3 },
   incline_db_curl: { biceps: 1.0 },
   hammer_curls: { biceps: 0.7, forearms: 0.8 },
@@ -135,7 +132,6 @@ const MUSCLE_MAPPING = {
   skull_crushers: { triceps: 1.0 },
   tricep_rope_pushdown: { triceps: 1.0 },
   overhead_cable_tricep: { triceps: 1.0 },
-
   hanging_leg_raise: { core: 1.0, forearms: 0.4 },
   cable_crunch: { core: 1.0 },
   ab_wheel: { core: 1.0 },
@@ -147,7 +143,6 @@ const MUSCLE_MAPPING = {
 // BACKGROUND TIMESTAMP TIMER (NEVER FREEZES)
 // ==========================================
 let globalWorkoutTick = null;
-
 function ensureWorkoutTickRunning() {
   if (globalWorkoutTick) return;
   globalWorkoutTick = setInterval(() => {
@@ -170,7 +165,6 @@ function updateTimerDisplays(rec) {
 
   const elLive = document.getElementById('liveWorkoutDurationText');
   if (elLive) elLive.innerText = timeFormatted;
-
   const elPill = document.getElementById('minimizedWorkoutPillTime');
   if (elPill) elPill.innerText = timeFormatted;
 
@@ -180,7 +174,6 @@ function updateTimerDisplays(rec) {
     const rM = Math.floor(remaining / 60);
     const rS = remaining % 60;
     const restFormatted = `${String(rM).padStart(2, '0')}:${String(rS).padStart(2, '0')}`;
-
     const rEl = document.getElementById('liveRestTimerCountdown');
     if (rEl) rEl.innerText = restFormatted;
 
@@ -252,7 +245,7 @@ function playRestChime() {
 }
 
 // ==========================================
-// MUSCLE HEATMAP GENERATOR (FRONT & BACK SVG)
+// MUSCLE HEATMAP GENERATOR (HIGH-FIDELITY SVG)
 // ==========================================
 function calculateMuscleVolumes(rec) {
   const scores = {
@@ -274,117 +267,217 @@ function calculateMuscleVolumes(rec) {
   return scores;
 }
 
-function getStimulusColor(sets) {
-  if (sets === 0) return "#1e293b"; // Slate-800: Cold
-  if (sets < 3) return "#0284c7";   // Blue-600: Primed
-  if (sets <= 6) return "#10b981";  // Emerald-500: Optimal Hypertrophy
-  if (sets <= 9) return "#f59e0b";  // Amber-500: High Volume
-  return "#ef4444";                 // Rose-500: Maximum Overreaching
+function getStimulusGradient(score) {
+  if (!score || score <= 0) return { fill: '#1e293b', stroke: '#334155' };
+  if (score < 2) return { fill: '#0369a1', stroke: '#38bdf8' };  // Primed
+  if (score <= 5) return { fill: '#059669', stroke: '#34d399' }; // Optimal Hypertrophy
+  if (score <= 8) return { fill: '#d97706', stroke: '#fbbf24' }; // Heavy Load
+  return { fill: '#dc2626', stroke: '#f87171' };                  // Overreach / Fatigue
 }
 
 function renderMuscleHeatmapSvg(scores) {
+  const getStyle = (m) => {
+    const s = getStimulusGradient(scores[m] || 0);
+    return `fill="${s.fill}" stroke="${s.stroke}" stroke-width="0.8" stroke-linejoin="round"`;
+  };
+
   return `
-    <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 shadow-xl text-center space-y-3">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-900">
-        <div class="text-left">
-          <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
-            <i data-lucide="activity" class="w-3.5 h-3.5 text-emerald-400"></i>
-            <span>Anatomical Hypertrophy Heatmap</span>
-          </h4>
-          <p class="text-[9px] text-slate-400">Live muscle strain and effective stimulus distribution</p>
-        </div>
+  <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-900">
+      <div>
+        <h4 class="text-xs font-black text-white flex items-center gap-1.5">
+          <i data-lucide="flame" class="w-3.5 h-3.5 text-orange-400"></i>
+          <span>Biomechanical Hypertrophy Schematic</span>
+        </h4>
+        <p class="text-[9px] text-slate-400">Effective direct & secondary volume per head</p>
+      </div>
+      <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+        ${Object.values(scores).reduce((a, b) => a + b, 0).toFixed(1)} Eff Sets
+      </span>
+    </div>
+
+    <div class="flex items-center justify-center gap-8 py-2">
+      <!-- ANTERIOR (FRONT) -->
+      <div class="space-y-1.5 text-center">
+        <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Anterior View</span>
+        <svg viewBox="0 0 120 180" class="w-32 h-48 filter drop-shadow">
+          <!-- Cranium & Neck -->
+          <path d="M54 18 C54 12, 66 12, 66 18 C66 22, 63 25, 60 26 C57 25, 54 22, 54 18 Z" fill="#1e293b" />
+          <path d="M56 26 L64 26 L65 32 L55 32 Z" fill="#334155" />
+
+          <!-- Deltoids (Anterior & Lateral) -->
+          <path d="M36 34 C31 36, 26 44, 28 52 C33 53, 38 48, 41 38 Z" ${getStyle('front_delt')} />
+          <path d="M84 34 C89 36, 94 44, 92 52 C87 53, 82 48, 79 38 Z" ${getStyle('front_delt')} />
+
+          <!-- Pectoralis Major (Clavicular & Sternal) -->
+          <path d="M43 36 C50 35, 58 37, 58 52 C50 53, 44 48, 42 38 Z" ${getStyle('chest')} />
+          <path d="M77 36 C70 35, 62 37, 62 52 C70 53, 76 48, 78 38 Z" ${getStyle('chest')} />
+
+          <!-- Biceps Brachii -->
+          <path d="M25 54 C24 62, 25 72, 31 75 C34 71, 35 60, 32 54 Z" ${getStyle('biceps')} />
+          <path d="M95 54 C96 62, 95 72, 89 75 C86 71, 85 60, 88 54 Z" ${getStyle('biceps')} />
+
+          <!-- Forearms (Flexors/Brachioradialis) -->
+          <path d="M22 78 C20 88, 22 100, 26 102 C29 98, 30 86, 28 78 Z" ${getStyle('forearms')} />
+          <path d="M98 78 C100 88, 98 100, 94 102 C91 98, 90 86, 92 78 Z" ${getStyle('forearms')} />
+
+          <!-- Rectus Abdominis & Obliques -->
+          <path d="M48 55 L72 55 L70 90 L50 90 Z" ${getStyle('core')} />
+
+          <!-- Quadriceps (Rectus femoris, vastus lateralis/medialis) -->
+          <path d="M42 94 C40 106, 38 128, 44 135 C52 134, 55 116, 56 94 Z" ${getStyle('quads')} />
+          <path d="M78 94 C80 106, 82 128, 76 135 C68 134, 65 116, 64 94 Z" ${getStyle('quads')} />
+
+          <!-- Tibialis Anterior & Calves -->
+          <path d="M42 140 C41 152, 42 168, 45 170 C48 168, 50 155, 48 140 Z" ${getStyle('calves')} />
+          <path d="M78 140 C79 152, 78 168, 75 170 C72 168, 70 155, 72 140 Z" ${getStyle('calves')} />
+        </svg>
       </div>
 
-      <!-- Schematics Container -->
-      <div class="flex items-center justify-center gap-6 py-2">
-        <!-- FRONT VIEW -->
-        <div class="space-y-1">
-          <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Anterior (Front)</span>
-          <svg viewBox="0 0 100 160" class="w-28 h-44 mx-auto filter drop-shadow">
-            <!-- Head -->
-            <circle cx="50" cy="12" r="8" fill="#334155" />
-            <rect x="47" y="20" width="6" height="5" fill="#334155" />
+      <!-- POSTERIOR (BACK) -->
+      <div class="space-y-1.5 text-center">
+        <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Posterior View</span>
+        <svg viewBox="0 0 120 180" class="w-32 h-48 filter drop-shadow">
+          <!-- Cranium -->
+          <path d="M54 18 C54 12, 66 12, 66 18 C66 22, 63 25, 60 26 C57 25, 54 22, 54 18 Z" fill="#1e293b" />
+          
+          <!-- Trapezius (Upper, Middle, Lower) -->
+          <path d="M47 28 L73 28 L67 48 L60 55 L53 48 Z" ${getStyle('traps')} />
 
-            <!-- Shoulders / Front Delts -->
-            <path d="M 33 26 C 28 26, 26 36, 28 42 C 32 40, 36 34, 37 28 Z" fill="${getStimulusColor(scores.front_delt)}" />
-            <path d="M 67 26 C 72 26, 74 36, 72 42 C 68 40, 64 34, 63 28 Z" fill="${getStimulusColor(scores.front_delt)}" />
+          <!-- Rear Deltoids -->
+          <path d="M35 34 C30 36, 27 43, 29 50 C34 48, 38 42, 40 36 Z" ${getStyle('rear_delt')} />
+          <path d="M85 34 C90 36, 93 43, 91 50 C86 48, 82 42, 80 36 Z" ${getStyle('rear_delt')} />
 
-            <!-- Chest -->
-            <path d="M 38 27 C 44 26, 49 28, 49 42 C 43 43, 37 40, 34 32 Z" fill="${getStimulusColor(scores.chest)}" />
-            <path d="M 62 27 C 56 26, 51 28, 51 42 C 57 43, 63 40, 66 32 Z" fill="${getStimulusColor(scores.chest)}" />
+          <!-- Latissimus Dorsi & Rhomboids -->
+          <path d="M44 48 C51 52, 53 62, 50 78 C42 74, 38 62, 38 50 Z" ${getStyle('lats')} />
+          <path d="M76 48 C69 52, 67 62, 70 78 C78 74, 82 62, 82 50 Z" ${getStyle('lats')} />
 
-            <!-- Biceps -->
-            <rect x="25" y="42" width="7" height="18" rx="3.5" fill="${getStimulusColor(scores.biceps)}" />
-            <rect x="68" y="42" width="7" height="18" rx="3.5" fill="${getStimulusColor(scores.biceps)}" />
+          <!-- Triceps (Lateral & Long Head) -->
+          <path d="M25 52 C23 62, 25 70, 29 74 C32 70, 33 60, 31 52 Z" ${getStyle('triceps')} />
+          <path d="M95 52 C97 62, 95 70, 91 74 C88 70, 87 60, 89 52 Z" ${getStyle('triceps')} />
 
-            <!-- Forearms -->
-            <rect x="23" y="62" width="6" height="20" rx="3" fill="${getStimulusColor(scores.forearms)}" />
-            <rect x="71" y="62" width="6" height="20" rx="3" fill="${getStimulusColor(scores.forearms)}" />
+          <!-- Spinal Erectors / Lower Back -->
+          <path d="M51 79 L69 79 L66 94 L54 94 Z" ${getStyle('lower_back')} />
 
-            <!-- Abs / Core -->
-            <rect x="42" y="45" width="16" height="28" rx="3" fill="${getStimulusColor(scores.core)}" />
+          <!-- Gluteus Maximus -->
+          <path d="M41 95 C41 106, 52 110, 58 102 L58 95 Z" ${getStyle('glutes')} />
+          <path d="M79 95 C79 106, 68 110, 62 102 L62 95 Z" ${getStyle('glutes')} />
 
-            <!-- Quads / Legs -->
-            <path d="M 37 76 C 36 82, 34 110, 38 118 C 43 118, 46 95, 47 76 Z" fill="${getStimulusColor(scores.quads)}" />
-            <path d="M 63 76 C 64 82, 66 110, 62 118 C 57 118, 54 95, 53 76 Z" fill="${getStimulusColor(scores.quads)}" />
+          <!-- Hamstrings -->
+          <path d="M42 112 C40 124, 43 135, 50 135 C55 130, 56 122, 56 112 Z" ${getStyle('hamstrings')} />
+          <path d="M78 112 C80 124, 77 135, 70 135 C65 130, 64 122, 64 112 Z" ${getStyle('hamstrings')} />
 
-            <!-- Calves (Anterior tibialis) -->
-            <rect x="37" y="122" width="6" height="28" rx="2.5" fill="${getStimulusColor(scores.calves)}" />
-            <rect x="57" y="122" width="6" height="28" rx="2.5" fill="${getStimulusColor(scores.calves)}" />
-          </svg>
-        </div>
-
-        <!-- BACK VIEW -->
-        <div class="space-y-1">
-          <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Posterior (Back)</span>
-          <svg viewBox="0 0 100 160" class="w-28 h-44 mx-auto filter drop-shadow">
-            <!-- Head -->
-            <circle cx="50" cy="12" r="8" fill="#334155" />
-            <rect x="47" y="20" width="6" height="5" fill="#334155" />
-
-            <!-- Traps -->
-            <path d="M 42 22 L 58 22 L 54 36 L 46 36 Z" fill="${getStimulusColor(scores.traps)}" />
-
-            <!-- Rear Delts -->
-            <path d="M 33 26 C 28 27, 26 35, 29 40 C 33 38, 36 34, 36 28 Z" fill="${getStimulusColor(scores.rear_delt)}" />
-            <path d="M 67 26 C 72 27, 74 35, 71 40 C 67 38, 64 34, 64 28 Z" fill="${getStimulusColor(scores.rear_delt)}" />
-
-            <!-- Lats & Rhomboids -->
-            <path d="M 38 32 C 45 35, 49 42, 48 58 C 42 54, 36 45, 34 36 Z" fill="${getStimulusColor(scores.lats)}" />
-            <path d="M 62 32 C 55 35, 51 42, 52 58 C 58 54, 64 45, 66 36 Z" fill="${getStimulusColor(scores.lats)}" />
-
-            <!-- Triceps -->
-            <rect x="25" y="40" width="7" height="19" rx="3.5" fill="${getStimulusColor(scores.triceps)}" />
-            <rect x="68" y="40" width="7" height="19" rx="3.5" fill="${getStimulusColor(scores.triceps)}" />
-
-            <!-- Lower Back -->
-            <rect x="43" y="58" width="14" height="16" rx="2" fill="${getStimulusColor(scores.lower_back)}" />
-
-            <!-- Glutes -->
-            <ellipse cx="43" cy="82" rx="7" ry="7" fill="${getStimulusColor(scores.glutes)}" />
-            <ellipse cx="57" cy="82" rx="7" ry="7" fill="${getStimulusColor(scores.glutes)}" />
-
-            <!-- Hamstrings -->
-            <rect x="36" y="92" width="10" height="26" rx="3" fill="${getStimulusColor(scores.hamstrings)}" />
-            <rect x="54" y="92" width="10" height="26" rx="3" fill="${getStimulusColor(scores.hamstrings)}" />
-
-            <!-- Calves -->
-            <rect x="36" y="122" width="8" height="26" rx="3" fill="${getStimulusColor(scores.calves)}" />
-            <rect x="56" y="122" width="8" height="26" rx="3" fill="${getStimulusColor(scores.calves)}" />
-          </svg>
-        </div>
-      </div>
-
-      <!-- Color Legend -->
-      <div class="grid grid-cols-5 gap-1 pt-1 text-[8px] font-bold uppercase tracking-wider text-slate-400">
-        <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-slate-800"></span>Cold</div>
-        <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-sky-500"></span>Primed (1-2)</div>
-        <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-emerald-500"></span>Optimal (3-6)</div>
-        <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-amber-500"></span>High (7-9)</div>
-        <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-rose-500"></span>Max (10+)</div>
+          <!-- Gastrocnemius / Soleus (Calves) -->
+          <path d="M40 142 C39 154, 42 165, 47 168 C50 162, 51 152, 49 142 Z" ${getStyle('calves')} />
+          <path d="M80 142 C81 154, 78 165, 73 168 C70 162, 69 152, 71 142 Z" ${getStyle('calves')} />
+        </svg>
       </div>
     </div>
+
+    <!-- Color Legend -->
+    <div class="grid grid-cols-5 gap-1 pt-1 text-[8px] font-bold uppercase tracking-wider text-slate-400">
+      <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-slate-800"></span>Cold</div>
+      <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-sky-600"></span>Primed (1-2)</div>
+      <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-emerald-600"></span>Target (3-5)</div>
+      <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-amber-600"></span>Heavy (6-8)</div>
+      <div class="flex items-center justify-center gap-1"><span class="w-2 h-2 rounded bg-rose-600"></span>Max (9+)</div>
+    </div>
+  </div>
   `;
+}
+
+// ==========================================
+// PREDICTIVE 1RM & PROGRESSION ENGINE
+// ==========================================
+function calculate1RM(weight, reps) {
+  if (reps === 1) return weight;
+  if (reps > 30 || weight <= 0) return 0;
+  return Math.round(weight / (1.0278 - (0.0278 * reps)));
+}
+
+function getExerciseProgressionStats(exerciseId) {
+  const history = workoutHistory[exerciseId] || [];
+  if (history.length === 0) return null;
+
+  const points = [];
+  history.forEach(session => {
+    let maxSessionEst1RM = 0;
+    let sessionVolume = 0;
+    session.sets.forEach(s => {
+      const e1RM = calculate1RM(s.weight, s.reps);
+      if (e1RM > maxSessionEst1RM) maxSessionEst1RM = e1RM;
+      sessionVolume += (s.weight * s.reps);
+    });
+    points.push({
+      date: session.date,
+      est1RM: maxSessionEst1RM,
+      volume: sessionVolume
+    });
+  });
+
+  const latest = points[points.length - 1];
+  const previous = points.length > 1 ? points[points.length - 2] : null;
+  const delta1RM = previous ? (latest.est1RM - previous.est1RM) : 0;
+  const recommendedNextWeight = Math.round((latest.est1RM * 0.85) / 5) * 5;
+
+  return {
+    sessionsLogged: points.length,
+    currentEst1RM: latest.est1RM,
+    delta1RM,
+    latestVolume: latest.volume,
+    recommendedWorkingWeight: recommendedNextWeight,
+    historyPoints: points
+  };
+}
+
+function renderPredictiveAnalyticsCard() {
+  const compoundIds = ['barbell_bench', 'barbell_squat', 'barbell_deadlift', 'overhead_press'];
+  
+  const compoundRows = compoundIds.map(id => {
+    const meta = EXERCISE_DATABASE.find(e => e.id === id);
+    const stats = getExerciseProgressionStats(id);
+    if (!stats) {
+      return `
+      <div class="flex items-center justify-between py-2 border-b border-slate-800/60 text-xs">
+        <span class="font-bold text-slate-300">${meta?.name || id}</span>
+        <span class="text-slate-600 text-[10px]">No sessions logged</span>
+      </div>`;
+    }
+
+    const deltaClass = stats.delta1RM >= 0 ? 'text-emerald-400' : 'text-rose-400';
+    const deltaSign = stats.delta1RM >= 0 ? '+' : '';
+
+    return `
+    <div class="py-2.5 border-b border-slate-800/80 space-y-1">
+      <div class="flex items-center justify-between text-xs">
+        <span class="font-bold text-white">${meta?.name || id}</span>
+        <div class="flex items-center gap-2">
+          <span class="font-mono font-black text-amber-300">${stats.currentEst1RM} lbs <span class="text-[9px] text-slate-400 font-normal">e1RM</span></span>
+          <span class="text-[10px] font-bold ${deltaClass}">(${deltaSign}${stats.delta1RM})</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-between text-[10px] text-slate-400">
+        <span>Suggested Working Sets (3x5): <strong class="text-cyan-300 font-mono">${stats.recommendedWorkingWeight} lbs</strong></span>
+        <span>Logged Vol: ${stats.latestVolume.toLocaleString()} lbs</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+          <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+        </div>
+        <div>
+          <h2 class="text-sm font-bold text-white">Progression Velocity & 1RM Targets</h2>
+          <div class="text-[10px] text-slate-400">Brzycki non-linear load predictions</div>
+        </div>
+      </div>
+    </div>
+    <div class="divide-y divide-slate-900">${compoundRows}</div>
+  </div>`;
 }
 
 // ==========================================
@@ -394,11 +487,9 @@ function launchLiveWorkoutSession() {
   const overlay = document.getElementById('fullScreenWorkoutOverlay');
   if (!overlay) return;
   const rec = getDayRecord(getDayKey(currentDate));
-
   if (!rec.workout.startTime) {
     rec.workout.startTime = Date.now();
   }
-
   overlay.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
   renderLiveWorkoutContent();
@@ -414,7 +505,6 @@ function closeLiveWorkoutSession() {
 function startRestCountdown(seconds) {
   const rec = getDayRecord(getDayKey(currentDate));
   rec.workout.restEndTime = Date.now() + (seconds * 1000);
-
   const banner = document.getElementById('liveRestTimerBanner');
   if (banner) banner.classList.remove('hidden');
 }
@@ -446,13 +536,11 @@ function renderLiveWorkoutContent() {
         <i data-lucide="dumbbell" class="w-10 h-10 mx-auto text-slate-600 mb-2"></i>
         <p class="text-sm font-bold text-slate-400">No lifts added to this session.</p>
         <p class="text-xs text-slate-600 mt-1">Select a PPLPP preset or add exercises from the UCSB MAC database below.</p>
-      </div>
-    `;
+      </div>`;
   } else {
     exercisesHtml = rec.workout.exercises.map((ex, exIdx) => {
       const exMeta = EXERCISE_DATABASE.find(e => e.id === ex.id);
       const calculatedRest = getCalculatedRestSeconds(ex.id);
-
       const setsRows = ex.sets.map((set, sIdx) => `
         <tr class="text-xs border-b border-slate-900">
           <td class="py-2 text-center font-bold text-slate-500">S${sIdx + 1}</td>
@@ -474,108 +562,106 @@ function renderLiveWorkoutContent() {
       `).join('');
 
       return `
-        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 shadow-xl">
-          <div class="flex items-center justify-between pb-2 border-b border-slate-900">
-            <div>
-              <div class="text-xs font-bold text-orange-300 flex items-center gap-1.5">
-                <span>${ex.name}</span>
-                <button onclick="showExerciseInfoModal('${ex.id}')" class="text-slate-400 hover:text-cyan-400 p-0.5"><i data-lucide="info" class="w-3.5 h-3.5"></i></button>
-              </div>
-              <div class="text-[9px] text-slate-500 flex items-center gap-2 mt-0.5">
-                <span>${exMeta?.equipment || 'UCSB MAC Machine'}</span>
-                <span class="text-amber-400 font-mono font-bold">• ${calculatedRest}s Rest</span>
-              </div>
+      <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 shadow-xl">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-900">
+          <div>
+            <div class="text-xs font-bold text-orange-300 flex items-center gap-1.5">
+              <span>${ex.name}</span>
+              <button onclick="showExerciseInfoModal('${ex.id}')" class="text-slate-400 hover:text-cyan-400 p-0.5"><i data-lucide="info" class="w-3.5 h-3.5"></i></button>
             </div>
-            <div class="flex items-center gap-1.5">
-              <button onclick="addLiveSet(${exIdx})" class="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">+ Set</button>
-              <button onclick="removeLiveExercise(${exIdx})" class="text-slate-600 hover:text-rose-400 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            <div class="text-[9px] text-slate-500 flex items-center gap-2 mt-0.5">
+              <span>${exMeta?.equipment || 'UCSB MAC Machine'}</span>
+              <span class="text-amber-400 font-mono font-bold">⚡ ${calculatedRest}s Rest</span>
             </div>
           </div>
-
-          <table class="w-full text-left">
-            <thead>
-              <tr class="text-[9px] text-slate-500 uppercase border-b border-slate-900">
-                <th class="pb-1 text-center w-8">Set</th>
-                <th class="pb-1 text-center">Weight (lbs)</th>
-                <th class="pb-1 text-center">Reps</th>
-                <th class="pb-1 text-center w-10">Done</th>
-                <th class="pb-1 text-center w-6"></th>
-              </tr>
-            </thead>
-            <tbody>${setsRows}</tbody>
-          </table>
+          <div class="flex items-center gap-1.5">
+            <button onclick="addLiveSet(${exIdx})" class="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">+ Set</button>
+            <button onclick="removeLiveExercise(${exIdx})" class="text-slate-600 hover:text-rose-400 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+          </div>
         </div>
+        <table class="w-full text-left">
+          <thead>
+            <tr class="text-[9px] text-slate-500 uppercase border-b border-slate-900">
+              <th class="pb-1 text-center w-8">Set</th>
+              <th class="pb-1 text-center">Weight (lbs)</th>
+              <th class="pb-1 text-center">Reps</th>
+              <th class="pb-1 text-center w-10">Done</th>
+              <th class="pb-1 text-center w-6"></th>
+            </tr>
+          </thead>
+          <tbody>${setsRows}</tbody>
+        </table>
+      </div>
       `;
     }).join('');
   }
 
   overlay.innerHTML = `
-    <!-- IMMERSIVE WORKOUT TOP BAR -->
-    <header class="bg-slate-950/95 border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-xl shrink-0">
-      <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-orange-500 animate-ping"></span>
-        <div>
-          <h2 class="text-xs font-black text-white uppercase tracking-wider">${rec.workout.title || 'Live Workout Session'}</h2>
-          <div class="text-[10px] text-orange-400 font-mono font-bold flex items-center gap-1">
-            <i data-lucide="clock" class="w-3 h-3"></i>
-            <span id="liveWorkoutDurationText">00:00</span>
-          </div>
+  <!-- IMMERSIVE WORKOUT TOP BAR -->
+  <header class="bg-slate-950/95 border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-xl shrink-0">
+    <div class="flex items-center gap-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-orange-500 animate-ping"></span>
+      <div>
+        <h2 class="text-xs font-black text-white uppercase tracking-wider">${rec.workout.title || 'Live Workout Session'}</h2>
+        <div class="text-[10px] text-orange-400 font-mono font-bold flex items-center gap-1">
+          <i data-lucide="clock" class="w-3 h-3"></i>
+          <span id="liveWorkoutDurationText">00:00</span>
         </div>
-      </div>
-      <div class="flex items-center gap-1.5">
-        <button onclick="closeLiveWorkoutSession()" class="px-2.5 py-1.5 rounded-xl text-[10px] font-bold bg-slate-900 text-slate-400 hover:text-white border border-slate-800">
-          Minimize
-        </button>
-        <button onclick="finishLiveWorkoutSession()" class="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition">
-          Finish Workout
-        </button>
-      </div>
-    </header>
-
-    <!-- LIVE REST TIMER FLOATING BANNER -->
-    <div id="liveRestTimerBanner" class="${rec.workout.restEndTime ? '' : 'hidden'} bg-gradient-to-r from-cyan-950 via-slate-900 to-blue-950 border-b border-cyan-500/40 px-4 py-2 flex items-center justify-between text-xs shadow-lg shrink-0">
-      <div class="flex items-center gap-2">
-        <i data-lucide="timer" class="w-4 h-4 text-cyan-400 animate-spin"></i>
-        <div>
-          <span class="text-[10px] text-slate-400 font-bold uppercase">Resting: </span>
-          <span id="liveRestTimerCountdown" class="text-sm font-mono font-black text-cyan-300">01:30</span>
-        </div>
-      </div>
-      <div class="flex items-center gap-1">
-        <button onclick="modifyRestTime(-15)" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-bold">-15s</button>
-        <button onclick="modifyRestTime(30)" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-bold">+30s</button>
-        <button onclick="cancelRestCountdown()" class="px-2 py-0.5 rounded bg-rose-950/60 text-rose-300 text-[10px] font-bold">Skip</button>
       </div>
     </div>
-
-    <!-- WORKOUT BODY SCROLLER -->
-    <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll max-w-xl mx-auto w-full pb-32">
-      <!-- Live Muscle Heatmap -->
-      ${renderMuscleHeatmapSvg(muscleScores)}
-
-      <!-- Split Presets Selector -->
-      <div class="bg-slate-950/70 border border-slate-800/80 p-2.5 rounded-2xl">
-        <div class="text-[10px] font-bold text-slate-400 mb-1.5 flex items-center justify-between">
-          <span>Switch Split Preset:</span>
-          <span class="text-orange-400 font-mono">PPLPP Cycle</span>
-        </div>
-        <div class="grid grid-cols-5 gap-1 text-center">
-          <button onclick="loadLivePreset('push1')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Push A</button>
-          <button onclick="loadLivePreset('pull1')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Pull A</button>
-          <button onclick="loadLivePreset('legs')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Legs</button>
-          <button onclick="loadLivePreset('push2')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Push B</button>
-          <button onclick="loadLivePreset('pull2')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Pull B</button>
-        </div>
-      </div>
-
-      ${exercisesHtml}
-
-      <button onclick="openExerciseModal()" class="w-full py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-900 border border-dashed border-orange-500/40 text-orange-400 font-bold text-xs flex items-center justify-center gap-2 transition">
-        <i data-lucide="plus-circle" class="w-4 h-4"></i> Add UCSB MAC Lift / Movement
+    <div class="flex items-center gap-1.5">
+      <button onclick="closeLiveWorkoutSession()" class="px-2.5 py-1.5 rounded-xl text-[10px] font-bold bg-slate-900 text-slate-400 hover:text-white border border-slate-800">
+        Minimize
+      </button>
+      <button onclick="finishLiveWorkoutSession()" class="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition">
+        Finish Workout
       </button>
     </div>
-  `;
+  </header>
 
+  <!-- LIVE REST TIMER FLOATING BANNER -->
+  <div id="liveRestTimerBanner" class="${rec.workout.restEndTime ? '' : 'hidden'} bg-gradient-to-r from-cyan-950 via-slate-900 to-blue-950 border-b border-cyan-500/40 px-4 py-2 flex items-center justify-between text-xs shadow-lg shrink-0">
+    <div class="flex items-center gap-2">
+      <i data-lucide="timer" class="w-4 h-4 text-cyan-400 animate-spin"></i>
+      <div>
+        <span class="text-[10px] text-slate-400 font-bold uppercase">Resting: </span>
+        <span id="liveRestTimerCountdown" class="text-sm font-mono font-black text-cyan-300">01:30</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-1">
+      <button onclick="modifyRestTime(-15)" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-bold">-15s</button>
+      <button onclick="modifyRestTime(30)" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-bold">+30s</button>
+      <button onclick="cancelRestCountdown()" class="px-2 py-0.5 rounded bg-rose-950/60 text-rose-300 text-[10px] font-bold">Skip</button>
+    </div>
+  </div>
+
+  <!-- WORKOUT BODY SCROLLER -->
+  <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll max-w-xl mx-auto w-full pb-32">
+    <!-- Live Muscle Heatmap -->
+    ${renderMuscleHeatmapSvg(muscleScores)}
+
+    <!-- Split Presets Selector -->
+    <div class="bg-slate-950/70 border border-slate-800/80 p-2.5 rounded-2xl">
+      <div class="text-[10px] font-bold text-slate-400 mb-1.5 flex items-center justify-between">
+        <span>Switch Split Preset:</span>
+        <span class="text-orange-400 font-mono">PPLPP Cycle</span>
+      </div>
+      <div class="grid grid-cols-5 gap-1 text-center">
+        <button onclick="loadLivePreset('push1')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Push A</button>
+        <button onclick="loadLivePreset('pull1')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Pull A</button>
+        <button onclick="loadLivePreset('legs')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Legs</button>
+        <button onclick="loadLivePreset('push2')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Push B</button>
+        <button onclick="loadLivePreset('pull2')" class="py-1 rounded-lg text-[9px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Pull B</button>
+      </div>
+    </div>
+
+    ${exercisesHtml}
+
+    <button onclick="openExerciseModal()" class="w-full py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-900 border border-dashed border-orange-500/40 text-orange-400 font-bold text-xs flex items-center justify-center gap-2 transition">
+      <i data-lucide="plus-circle" class="w-4 h-4"></i> Add UCSB MAC Lift / Movement
+    </button>
+  </div>
+  `;
   lucide.createIcons();
 }
 
@@ -615,8 +701,8 @@ function toggleLiveSetDone(exIdx, sIdx, exerciseId) {
       const restSecs = getCalculatedRestSeconds(exerciseId);
       startRestCountdown(restSecs);
     }
-    renderLiveWorkoutContent();
   }
+  renderLiveWorkoutContent();
 }
 
 function removeLiveExercise(exIdx) {
@@ -636,8 +722,8 @@ function loadLivePreset(presetKey) {
 function finishLiveWorkoutSession() {
   const rec = getDayRecord(getDayKey(currentDate));
   rec.workout.completed = true;
-
   const todayKey = getDayKey(currentDate);
+
   rec.workout.exercises.forEach(ex => {
     const validSets = ex.sets.filter(s => s.done && s.weight > 0);
     if (validSets.length > 0) {
@@ -657,11 +743,10 @@ function finishLiveWorkoutSession() {
 function showWorkoutSummaryScreen(rec) {
   const overlay = document.getElementById('fullScreenWorkoutOverlay');
   if (!overlay) return;
-
   const muscleScores = calculateMuscleVolumes(rec);
+
   let totalVolume = 0;
   let totalSets = 0;
-
   rec.workout.exercises.forEach(ex => {
     const valid = ex.sets.filter(s => s.done && s.weight > 0);
     totalVolume += valid.reduce((acc, s) => acc + (s.weight * s.reps), 0);
@@ -672,78 +757,75 @@ function showWorkoutSummaryScreen(rec) {
   const mins = Math.floor(((rec.workout.durationSeconds || 0) % 3600) / 60);
 
   overlay.innerHTML = `
-    <div class="max-w-md mx-auto p-5 flex flex-col justify-between h-full overflow-y-auto custom-scroll text-center">
-      <div class="space-y-4 pt-4">
-        <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mx-auto text-2xl shadow-xl shadow-emerald-500/20">
-          🔥
+  <div class="max-w-md mx-auto p-5 flex flex-col justify-between h-full overflow-y-auto custom-scroll text-center">
+    <div class="space-y-4 pt-4">
+      <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mx-auto text-2xl shadow-xl shadow-emerald-500/20">
+        ✓
+      </div>
+      <div>
+        <h1 class="text-lg font-black text-white tracking-tight uppercase">Workout Completed!</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Session recorded into Protocol OS.</p>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2">
+        <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
+          <div class="text-[9px] font-bold text-slate-500 uppercase">Volume</div>
+          <div class="text-xs font-black text-white mt-0.5">${totalVolume.toLocaleString()} lbs</div>
         </div>
-        <div>
-          <h1 class="text-lg font-black text-white tracking-tight uppercase">Workout Completed!</h1>
-          <p class="text-xs text-slate-400 mt-0.5">Session recorded into Protocol OS.</p>
+        <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
+          <div class="text-[9px] font-bold text-slate-500 uppercase">Duration</div>
+          <div class="text-xs font-black text-orange-400 mt-0.5">${hrs > 0 ? hrs + 'h ' : ''}${mins}m</div>
         </div>
-
-        <div class="grid grid-cols-3 gap-2">
-          <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
-            <div class="text-[9px] font-bold text-slate-500 uppercase">Volume</div>
-            <div class="text-xs font-black text-white mt-0.5">${totalVolume.toLocaleString()} lbs</div>
-          </div>
-          <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
-            <div class="text-[9px] font-bold text-slate-500 uppercase">Duration</div>
-            <div class="text-xs font-black text-orange-400 mt-0.5">${hrs > 0 ? hrs + 'h ' : ''}${mins}m</div>
-          </div>
-          <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
-            <div class="text-[9px] font-bold text-slate-500 uppercase">Sets Done</div>
-            <div class="text-xs font-black text-cyan-400 mt-0.5">${totalSets}</div>
-          </div>
-        </div>
-
-        <!-- Session Muscle Heatmap -->
-        ${renderMuscleHeatmapSvg(muscleScores)}
-
-        <!-- AI COACH POST-WORKOUT CONSULTATION -->
-        <div class="bg-gradient-to-br from-purple-950/40 via-slate-950 to-indigo-950/40 border border-purple-500/30 rounded-2xl p-4 text-left space-y-3">
-          <div class="flex items-center gap-2">
-            <i data-lucide="bot" class="w-4 h-4 text-purple-400"></i>
-            <div>
-              <h3 class="text-xs font-black text-white">AI Coach Post-Workout Consultation</h3>
-              <p class="text-[9px] text-slate-400">Review fatigue, pumps & automatically adapt next week's preset</p>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-[10px] text-slate-300 font-bold mb-1">How did today feel? (Joints, energy, pumps, sticking points):</label>
-            <textarea id="aiCoachFeedbackInput" rows="2" placeholder="e.g. Incline DB felt incredible, but right shoulder felt impinged on flat bench. Triceps were completely cooked early..." class="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 placeholder-slate-600 resize-none"></textarea>
-          </div>
-
-          <button onclick="requestAiCoachConsultation()" id="btnConsultCoach" class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-            <span>Generate Analysis & Preset Recommendation</span>
-          </button>
-
-          <!-- Response Mount -->
-          <div id="aiCoachOutputContainer" class="hidden space-y-2 pt-2 border-t border-purple-500/20"></div>
+        <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
+          <div class="text-[9px] font-bold text-slate-500 uppercase">Sets Done</div>
+          <div class="text-xs font-black text-cyan-400 mt-0.5">${totalSets}</div>
         </div>
       </div>
 
-      <div class="py-5">
-        <button onclick="closeLiveWorkoutSession()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition">
-          Done & Return to Protocol OS
+      <!-- Session Muscle Heatmap -->
+      ${renderMuscleHeatmapSvg(muscleScores)}
+
+      <!-- AI COACH POST-WORKOUT CONSULTATION -->
+      <div class="bg-gradient-to-br from-purple-950/40 via-slate-950 to-indigo-950/40 border border-purple-500/30 rounded-2xl p-4 text-left space-y-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="bot" class="w-4 h-4 text-purple-400"></i>
+          <div>
+            <h3 class="text-xs font-black text-white">AI Coach Post-Workout Consultation</h3>
+            <p class="text-[9px] text-slate-400">Review fatigue, pumps & automatically adapt next week's preset</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-slate-300 font-bold mb-1">How did today feel? (Joints, energy, pumps, sticking points):</label>
+          <textarea id="aiCoachFeedbackInput" rows="2" placeholder="e.g. Incline DB felt incredible, but right shoulder felt impinged on flat bench. Triceps were completely cooked early..." class="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 placeholder-slate-600 resize-none"></textarea>
+        </div>
+
+        <button onclick="requestAiCoachConsultation()" id="btnConsultCoach" class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          <span>Generate Analysis & Preset Recommendation</span>
         </button>
+
+        <div id="aiCoachOutputContainer" class="hidden space-y-2 pt-2 border-t border-purple-500/20"></div>
       </div>
     </div>
-  `;
 
+    <div class="py-5">
+      <button onclick="closeLiveWorkoutSession()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition">
+        Done & Return to Protocol OS
+      </button>
+    </div>
+  </div>
+  `;
   lucide.createIcons();
 }
 
-// AI COACH GEMINI 3.8-FLASH CONSULTATION
 async function requestAiCoachConsultation() {
   const btn = document.getElementById('btnConsultCoach');
   const out = document.getElementById('aiCoachOutputContainer');
   const userFeedback = document.getElementById('aiCoachFeedbackInput')?.value || "Felt normal.";
   const rec = getDayRecord(getDayKey(currentDate));
 
-  btn.innerHTML = `<span class="animate-pulse">Analyzing Biomechanics & Adaptation...</span>`;
+  btn.innerHTML = '<span class="animate-pulse">Analyzing Biomechanics & Adaptation...</span>';
   btn.disabled = true;
 
   const keys = userGoals.apiKeys || [];
@@ -780,7 +862,7 @@ OUTPUT strictly valid JSON without markdown or code fences:
   const apiKey = keys[userGoals.activeKeyIndex % keys.length];
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -788,7 +870,7 @@ OUTPUT strictly valid JSON without markdown or code fences:
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const parsed = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim());
+    const parsed = JSON.parse(data.candidates[0].content.parts[0].text.replace(/^```json|```/g, "").trim());
 
     out.innerHTML = `
       <div class="bg-slate-900 border border-purple-500/30 p-3 rounded-xl space-y-2 text-xs">
@@ -817,16 +899,12 @@ OUTPUT strictly valid JSON without markdown or code fences:
 function applyAiPresetChanges(updatedIds) {
   if (!updatedIds || !Array.isArray(updatedIds)) return;
   const rec = getDayRecord(getDayKey(currentDate));
-
   if (!customPresets) {
     customPresets = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
   }
-
-  // Find matching preset key from title
   const presetKey = Object.keys(customPresets).find(k => customPresets[k].title === rec.workout.title) || 'push1';
   customPresets[presetKey].exercises = updatedIds;
   localStorage.setItem('protocol_os_presets', JSON.stringify(customPresets));
-
   alert(`Preset '${customPresets[presetKey].title}' updated with AI adaptations for your next rotation!`);
 }
 
@@ -886,6 +964,7 @@ function closeExerciseModal() {
   document.getElementById('exerciseModal').classList.add('hidden');
 }
 
+let currentCategoryFilter = 'all';
 function setExerciseCategory(cat) {
   currentCategoryFilter = cat;
   filterExerciseLibrary(document.getElementById('exerciseSearchInput').value);
@@ -923,7 +1002,6 @@ function filterExerciseLibrary(query) {
 function selectExerciseForWorkout(exId) {
   const rec = getDayRecord(getDayKey(currentDate));
   const meta = EXERCISE_DATABASE.find(e => e.id === exId);
-
   rec.workout.exercises.push({
     id: exId,
     name: meta?.name || exId,
@@ -934,7 +1012,6 @@ function selectExerciseForWorkout(exId) {
       { weight: 0, reps: 0, done: false }
     ]
   });
-
   persist();
   closeExerciseModal();
   const overlay = document.getElementById('fullScreenWorkoutOverlay');
@@ -973,7 +1050,6 @@ function loadPplPreset(presetKey) {
 function renderAthleticsTab(rec) {
   const container = document.getElementById('view_athletics');
   if (!container) return;
-
   const dOw = currentDate.getDay();
   const sN = { 1: "Mon: Push A", 2: "Tue: Pull A", 3: "Wed: Legs", 4: "Thu: Push B", 5: "Fri: Pull B" };
   const muscleScores = calculateMuscleVolumes(rec);
@@ -983,7 +1059,9 @@ function renderAthleticsTab(rec) {
     <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400"><i data-lucide="trending-up" class="w-3.5 h-3.5"></i></div>
+          <div class="w-7 h-7 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+            <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+          </div>
           <div><h2 class="text-sm font-bold text-white">Bodyweight Analytics</h2><div class="text-[10px] text-slate-400">Fasted trend curve</div></div>
         </div>
         <div id="weightSummaryBadge" class="text-xs font-extrabold text-violet-300">-- lbs</div>
@@ -994,10 +1072,18 @@ function renderAthleticsTab(rec) {
       </div>
     </div>
 
-    <!-- ATHLETICS & CLIMBING -->
+    <!-- PREDICTIVE 1RM & STATS CARD -->
+    ${renderPredictiveAnalyticsCard()}
+
+    <!-- ANATOMICAL MUSCLE SCHEMATIC -->
+    ${renderMuscleHeatmapSvg(muscleScores)}
+
+    <!-- REHAB & RECOVERY -->
     <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
       <div class="flex items-center gap-2">
-        <div class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400"><i data-lucide="activity" class="w-3.5 h-3.5"></i></div>
+        <div class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+        </div>
         <div><h2 class="text-sm font-bold text-white">Rehab & Athletics Compliance</h2><div class="text-[10px] text-slate-400">Weekly non-daily volume targets</div></div>
       </div>
       <div class="grid grid-cols-3 gap-2">
@@ -1006,27 +1092,24 @@ function renderAthleticsTab(rec) {
             <span class="text-[10px] font-bold text-slate-200">Groin PT</span>
             <span class="text-[8px] font-extrabold px-1 rounded bg-slate-800 text-slate-400">${getWeeklyStat('pt', currentDate)}/3</span>
           </div>
-          <button onclick="togglePtToday()" class="w-full py-1 rounded text-[9px] font-bold border transition ${rec.pt ? 'bg-emerald-600 text-white border-emerald-400' : 'bg-slate-800 text-slate-300 border-slate-700'}">${rec.pt ? 'Done ✓' : 'Log PT'}</button>
+          <button onclick="togglePtToday()" class="w-full py-1 rounded text-[9px] font-bold border transition ${rec.pt ? 'bg-emerald-600 text-white border-emerald-400' : 'bg-slate-800 text-slate-300'}">${rec.pt ? 'Done' : 'Log PT'}</button>
         </div>
         <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-2 flex flex-col justify-between">
           <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-bold text-slate-200">Prehab</span>
             <span class="text-[8px] font-extrabold px-1 rounded bg-slate-800 text-slate-400">${getWeeklyStat('prehab', currentDate)}/4</span>
           </div>
-          <button onclick="togglePrehabToday()" class="w-full py-1 rounded text-[9px] font-bold border transition ${rec.prehab ? 'bg-emerald-600 text-white border-emerald-400' : 'bg-slate-800 text-slate-300 border-slate-700'}">${rec.prehab ? 'Done ✓' : 'Log Prehab'}</button>
+          <button onclick="togglePrehabToday()" class="w-full py-1 rounded text-[9px] font-bold border transition ${rec.prehab ? 'bg-emerald-600 text-white border-emerald-400' : 'bg-slate-800 text-slate-300'}">${rec.prehab ? 'Done' : 'Log Prehab'}</button>
         </div>
         <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-2 flex flex-col justify-between">
           <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-bold text-slate-200">Climb</span>
             <span class="text-[8px] font-extrabold px-1 rounded bg-slate-800 text-slate-400">+350 kcal</span>
           </div>
-          <button onclick="toggleClimbToday()" class="w-full py-1 rounded text-[9px] font-bold border transition ${rec.climbing ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-slate-800 text-slate-300 border-slate-700'}">${rec.climbing ? 'Logged ✓' : 'Log Climb'}</button>
+          <button onclick="toggleClimbToday()" class="w-full py-1 rounded text-[9px] font-bold border transition ${rec.climbing ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-slate-800 text-slate-300'}">${rec.climbing ? 'Logged' : 'Log Climb'}</button>
         </div>
       </div>
     </div>
-
-    <!-- ANATOMICAL HEATMAP -->
-    ${renderMuscleHeatmapSvg(muscleScores)}
 
     <!-- LIFTOFF WORKOUT OVERVIEW & LAUNCHER -->
     <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3.5">
@@ -1036,16 +1119,13 @@ function renderAthleticsTab(rec) {
           <div><h2 class="text-sm font-bold text-white">LIFTOFF UCSB Engine</h2><div class="text-[10px] text-slate-400">80+ MAC lifts, adaptive rest & AI adaptations</div></div>
         </div>
         <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${rec.workout.completed ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
-          ${rec.workout.completed ? 'Completed Today ✓' : 'Session Ready'}
+          ${rec.workout.completed ? 'Completed Today' : 'Session Ready'}
         </span>
       </div>
-
-      <!-- Launch Immersive Mode Button -->
-      <button onclick="launchLiveWorkoutSession()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 transition active:scale-95">
+      <button onclick="launchLiveWorkoutSession()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 transition active:scale-95">
         <i data-lucide="play" class="w-4 h-4 fill-white"></i>
         <span>${rec.workout.startTime && !rec.workout.completed ? 'Resume Live Workout' : 'Start Full-Screen Session'}</span>
       </button>
-
       <div class="bg-slate-950/60 border border-slate-800/80 p-2.5 rounded-xl space-y-2">
         <div class="flex items-center justify-between text-[10px] font-bold text-slate-300">
           <span>Weekly Split Target:</span>
@@ -1061,8 +1141,8 @@ function renderAthleticsTab(rec) {
       </div>
     </div>
   `;
-
   renderWeightChart();
+  lucide.createIcons();
 }
 
 function renderWeightChart() {
@@ -1070,6 +1150,7 @@ function renderWeightChart() {
   const msg = document.getElementById('noWeightMsg');
   if (!svg || !msg) return;
   svg.innerHTML = '';
+
   const d = Object.keys(appData).filter(k => appData[k].weight !== null && appData[k].weight !== undefined).sort();
   if (d.length === 0) {
     msg.classList.remove('hidden');
@@ -1077,21 +1158,26 @@ function renderWeightChart() {
     return;
   }
   msg.classList.add('hidden');
+
   const p = d.map(k => ({ w: appData[k].weight }));
   document.getElementById('weightSummaryBadge').innerText = `${p[p.length - 1].w} lbs`;
+
   if (p.length === 1) {
-    svg.innerHTML = `<circle cx="50%" cy="50%" r="4" fill="#a78bfa" />`;
+    svg.innerHTML = '<circle cx="50%" cy="50%" r="4" fill="#a78bfa" />';
     return;
   }
+
   const ws = p.map(x => x.w);
   const minW = Math.min(...ws) - 1;
   const maxW = Math.max(...ws) + 1;
   const range = (maxW - minW) || 1;
+
   let dPath = "";
   p.forEach((pt, i) => {
     const x = (i / (p.length - 1)) * 360 + 10;
     const y = 100 - ((pt.w - minW) / range) * 100 + 5;
     dPath += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+
     const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     c.setAttribute("cx", x);
     c.setAttribute("cy", y);
@@ -1099,6 +1185,7 @@ function renderWeightChart() {
     c.setAttribute("fill", "#a78bfa");
     svg.appendChild(c);
   });
+
   const pE = document.createElementNS("http://www.w3.org/2000/svg", "path");
   pE.setAttribute("d", dPath);
   pE.setAttribute("fill", "none");

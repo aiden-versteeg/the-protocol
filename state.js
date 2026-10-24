@@ -127,18 +127,44 @@ function shiftDate(days) {
   render();
 }
 
+// ====== ROUTING & NAVIGATION ======
+function toggleNavDropdown() {
+  const menu = document.getElementById('navDropdownMenu');
+  if (menu) menu.classList.toggle('hidden');
+}
+
+function selectDropdownTab(tab, label) {
+  document.getElementById('navDropdownMenu')?.classList.add('hidden');
+  const labelEl = document.getElementById('activeDropdownLabel');
+  if (labelEl) labelEl.innerText = label;
+  switchMainTab(tab);
+}
+
 function switchMainTab(tab) {
   currentMainTab = tab;
-  ['today', 'matrix', 'athletics', 'academics'].forEach(t => {
+  ['today', 'matrix', 'athletics', 'nutrition', 'academics'].forEach(t => {
     const el = document.getElementById(`view_${t}`);
     if (el) el.classList.toggle('hidden', t !== tab);
-    const btn = document.getElementById(`navBtn_${t}`);
-    if (btn) {
-      btn.className = (t === tab)
-        ? "py-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-        : "py-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-200";
-    }
   });
+
+  const btnToday = document.getElementById('navBtn_today');
+  const btnMatrix = document.getElementById('navBtn_matrix');
+  const ddTrigger = document.getElementById('dropdownNavTrigger');
+
+  if (tab === 'today') {
+    if (btnToday) btnToday.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+    if (btnMatrix) btnMatrix.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
+    if (ddTrigger) ddTrigger.className = "h-full px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-950/80 border border-slate-800 text-slate-300 hover:border-slate-700 flex items-center gap-1.5 transition";
+  } else if (tab === 'matrix') {
+    if (btnMatrix) btnMatrix.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30";
+    if (btnToday) btnToday.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
+    if (ddTrigger) ddTrigger.className = "h-full px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-950/80 border border-slate-800 text-slate-300 hover:border-slate-700 flex items-center gap-1.5 transition";
+  } else {
+    if (btnToday) btnToday.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
+    if (btnMatrix) btnMatrix.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
+    if (ddTrigger) ddTrigger.className = "h-full px-3 py-2.5 rounded-xl text-xs font-bold bg-orange-950/30 border border-orange-500/40 text-orange-300 flex items-center gap-1.5 transition";
+  }
+
   render();
 }
 
@@ -251,13 +277,13 @@ function render() {
   const key = getDayKey(currentDate);
   const rec = getDayRecord(key);
   syncAutomations(rec);
-
   const startNotice = document.getElementById('protocolStartNotice');
   if (startNotice) startNotice.innerText = `Protocol Active: ${START_DATE_KEY}`;
 
-  if (typeof renderTodayTab === 'function') renderTodayTab(rec);
+  if (currentMainTab === 'today' && typeof renderTodayTab === 'function') renderTodayTab(rec);
   if (currentMainTab === 'matrix' && typeof renderMatrixCalendar === 'function') renderMatrixCalendar();
   if (currentMainTab === 'athletics' && typeof renderAthleticsTab === 'function') renderAthleticsTab(rec);
+  if (currentMainTab === 'nutrition' && typeof renderNutritionTab === 'function') renderNutritionTab(rec);
   if (currentMainTab === 'academics' && typeof renderAcademicsTab === 'function') renderAcademicsTab(rec);
 
   lucide.createIcons();

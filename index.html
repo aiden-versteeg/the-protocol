@@ -58,25 +58,30 @@
       </div>
     </header>
 
-    <!-- STREAMLINED NAVIGATION: DAY LOG & MATRIX + MODULES DROPDOWN -->
-    <nav class="flex items-center justify-between bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl mb-4 shadow-xl">
-      <div class="grid grid-cols-2 gap-1.5 flex-1 mr-2">
-        <button id="navBtn_today" onclick="switchMainTab('today')" 
-          class="py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-          <span>Day Log</span>
-        </button>
-        <button id="navBtn_matrix" onclick="switchMainTab('matrix')" 
-          class="py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200">
-          <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
-          <span>Matrix</span>
-        </button>
-      </div>
+    <!-- STREAMLINED NAVIGATION: DAY LOG + MINIMALIST MATRIX ICON + MODULES DROPDOWN -->
+    <nav class="flex items-center justify-between gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl mb-4 shadow-xl">
+      <!-- Day Log (Primary Focus) -->
+      <button id="navBtn_today" onclick="switchMainTab('today')" 
+        class="flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+        <span>Day Log</span>
+      </button>
 
-      <!-- MODULES DROPDOWN TRIGGER -->
+      <!-- Minimalist Matrix Glyph Button (Compact, non-emoji character glyph) -->
+      <button id="navBtn_matrix" onclick="switchMainTab('matrix')" title="Matrix Audit Calendar"
+        class="w-9 h-9 shrink-0 rounded-xl transition flex items-center justify-center text-slate-400 hover:text-slate-200 bg-slate-950/70 border border-slate-800">
+        <svg class="w-3.5 h-3.5 stroke-current stroke-[2.2]" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+        </svg>
+      </button>
+
+      <!-- Modules Dropdown Trigger -->
       <div class="relative shrink-0">
         <button id="dropdownNavTrigger" onclick="toggleNavDropdown()" 
-          class="h-full px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-950/80 border border-slate-800 text-slate-300 hover:border-slate-700 flex items-center gap-1.5 transition">
+          class="h-9 px-3 rounded-xl text-xs font-bold bg-slate-950/80 border border-slate-800 text-slate-300 hover:border-slate-700 flex items-center gap-1.5 transition">
           <span id="activeDropdownLabel">Modules</span>
           <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
         </button>

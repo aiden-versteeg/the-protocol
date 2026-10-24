@@ -80,7 +80,7 @@ function renderTodayTab(rec) {
         </div>
       </div>
 
-      <!-- NUTRITION DATA SUMMARY CARD (COMPACT COCKPIT) -->
+      <!-- NUTRITION PERFORMANCE SUMMARY CARD (COMPACT COCKPIT) -->
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 shadow-lg space-y-3">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">

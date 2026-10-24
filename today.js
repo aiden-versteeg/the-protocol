@@ -1,6 +1,7 @@
-// ==========================================
+// ===============================================
 // TODAY TAB LOGIC, DECONSTRUCTION & KEY ROTATION
-// ==========================================
+// ===============================================
+
 const mealImages = { m_breakfast: [], m_lunch: [], m_dinner: [], m_snacks: [] };
 
 function renderTodayTab(rec) {
@@ -17,11 +18,10 @@ function renderTodayTab(rec) {
     locked: { t: "Locked", c: "text-slate-500" },
     breached: { t: "Breached", c: "text-rose-400" },
     pending: { t: "Incomplete", c: "text-amber-400" },
-    complete: { t: "100% Complete ✓", c: "text-emerald-400" }
+    complete: { t: "100% Complete", c: "text-emerald-400" }
   };
 
   const wVol = (isPrior || isFuture) ? 0 : getWaterVolume(rec.water);
-  // Water target: 3000 ml (3L)
   const wPct = Math.min(100, Math.round((wVol / 3000) * 100));
 
   let totalCal = 0, totalP = 0, totalC = 0, totalF = 0;
@@ -32,8 +32,6 @@ function renderTodayTab(rec) {
     totalC += Number(mD.c) || 0;
     totalF += Number(mD.f) || 0;
   });
-
-  const dynCal = computeDynamicCalories(rec);
 
   container.innerHTML = `
     <!-- DATE CONTROLS -->
@@ -66,7 +64,6 @@ function renderTodayTab(rec) {
     </div>
 
     <div class="${(isFuture || isPrior) ? 'space-y-3 locked-overlay' : 'space-y-3'}">
-      
       <!-- WEIGH IN -->
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 flex items-center justify-between shadow-lg">
         <div class="flex items-center gap-2.5">
@@ -86,7 +83,7 @@ function renderTodayTab(rec) {
             <div class="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400"><i data-lucide="lock" class="w-3.5 h-3.5"></i></div>
             <div>
               <h2 class="text-xs font-bold text-white">Morning Focus Commitments</h2>
-              <div class="text-[9px] text-slate-400">Locks permanently 1 min after typing • 100% required</div>
+              <div class="text-[9px] text-slate-400">Locks permanently 1 min after typing. 100% required</div>
             </div>
           </div>
           <span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
@@ -119,7 +116,7 @@ function renderTodayTab(rec) {
         <summary class="flex items-center justify-between p-3.5 cursor-pointer">
           <div class="flex items-center gap-2">
             <div class="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400"><i data-lucide="target" class="w-3.5 h-3.5"></i></div>
-            <div><h2 class="text-xs font-bold text-white">Weekly Sprints & Objectives</h2><div class="text-[9px] text-slate-400 font-medium">Non-daily targets • Tracked by weekly quota</div></div>
+            <div><h2 class="text-xs font-bold text-white">Weekly Sprints & Objectives</h2><div class="text-[9px] text-slate-400 font-medium">Non-daily targets tracked by weekly quota</div></div>
           </div>
           <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500 group-open:rotate-180 transition-transform duration-300"></i>
         </summary>
@@ -153,37 +150,22 @@ function renderTodayTab(rec) {
         </div>
       </details>
 
-      <!-- MEALS -->
-      <details open class="group bg-slate-900/80 border border-slate-800 rounded-2xl shadow-lg">
-        <summary class="flex items-center justify-between p-3.5 cursor-pointer">
-          <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400"><i data-lucide="utensils" class="w-3.5 h-3.5"></i></div>
-            <div><h2 class="text-xs font-bold text-white">Meal & Nutrition Tracker</h2><div class="text-[9px] text-slate-400 font-medium">Deconstructed UCSB Dining & Self-Audit</div></div>
+      <!-- NUTRITION SHORTCUT CARD IN DAY LOG -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 flex items-center justify-between shadow-lg">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <i data-lucide="utensils" class="w-3.5 h-3.5"></i>
           </div>
-          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500 group-open:rotate-180 transition-transform duration-300"></i>
-        </summary>
-        <div class="px-3.5 pb-3.5 border-t border-slate-800/50 pt-3 space-y-3">
-          <div class="bg-slate-950/70 border border-amber-500/20 rounded-xl p-2.5 space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-[10px] font-bold text-amber-300 flex items-center gap-1"><i data-lucide="calculator" class="w-3 h-3 text-amber-400"></i> Dynamic Calorie Intake</span>
-              <button onclick="applyDynamicCalorieGoal()" class="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition">Set as Target</button>
-            </div>
-            <div class="flex items-baseline justify-between">
-              <div><span class="text-base font-black text-white">${dynCal.total.toLocaleString()}</span><span class="text-[10px] text-slate-400 font-bold ml-0.5">kcal / day</span></div>
-              <div class="text-[9px] text-slate-400 font-mono text-right">BMR: ${dynCal.bmr} • Act: +${dynCal.exercise} • Bulk: +${dynCal.surplus}</div>
-            </div>
+          <div>
+            <div class="text-xs font-bold text-white">Daily Meals & Dining Audit</div>
+            <div class="text-[9px] text-slate-400 font-medium">${totalCal} kcal logged (${totalP}g P)</div>
           </div>
-
-          <div class="grid grid-cols-4 gap-1 bg-slate-950/60 border border-slate-800/80 p-2 rounded-xl mb-2 text-center">
-            <div><div class="text-[8px] text-slate-400 font-bold uppercase">Calories</div><div class="text-[11px] font-black text-white">${totalCal}</div><div class="text-[7px] text-slate-500">/ ${userGoals.calories}</div></div>
-            <div><div class="text-[8px] text-amber-400 font-bold uppercase">Protein</div><div class="text-[11px] font-black text-amber-400">${totalP}g</div><div class="text-[7px] text-slate-500">/ ${userGoals.protein}g</div></div>
-            <div><div class="text-[8px] text-cyan-400 font-bold uppercase">Carbs</div><div class="text-[11px] font-black text-cyan-400">${totalC}g</div><div class="text-[7px] text-slate-500">/ ${userGoals.carbs}g</div></div>
-            <div><div class="text-[8px] text-rose-400 font-bold uppercase">Fats</div><div class="text-[11px] font-black text-rose-400">${totalF}g</div><div class="text-[7px] text-slate-500">/ ${userGoals.fat}g</div></div>
-          </div>
-
-          <div id="mealsContainer" class="space-y-3"></div>
         </div>
-      </details>
+        <button onclick="selectDropdownTab('nutrition', 'Nutrition')" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition flex items-center gap-1">
+          <span>Open Nutrition</span>
+          <i data-lucide="arrow-right" class="w-3 h-3"></i>
+        </button>
+      </div>
 
       <!-- BOUNDARIES -->
       <details class="group bg-slate-900/80 border border-slate-800 rounded-2xl shadow-lg">
@@ -203,7 +185,7 @@ function renderTodayTab(rec) {
   renderActionsList(rec, isPrior, isFuture, isWeekend);
   renderWeeklySprintsList(rec, isPrior, isFuture);
   renderBoundariesList(rec, isPrior, isFuture);
-  renderMealsList(rec, isPrior, isFuture);
+  lucide.createIcons();
 }
 
 function renderCommitmentTasks(rec) {
@@ -212,9 +194,10 @@ function renderCommitmentTasks(rec) {
   list.innerHTML = '';
   const tasks = rec.customTasks || [];
   if (tasks.length === 0) {
-    list.innerHTML = `<div class="text-[10px] text-slate-500 italic py-1">No custom morning commitments set for today yet.</div>`;
+    list.innerHTML = '<div class="text-[10px] text-slate-500 italic py-1">No custom morning commitments set for today yet.</div>';
     return;
   }
+
   const now = Date.now();
   tasks.forEach(t => {
     const elapsed = Math.floor((now - t.createdAt) / 1000);
@@ -230,10 +213,10 @@ function renderCommitmentTasks(rec) {
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
         ${isLocked 
-          ? `<span class="text-[8px] font-extrabold px-1.5 py-0.5 rounded bg-rose-950/50 text-rose-300 border border-rose-800/40 flex items-center gap-0.5"><i data-lucide="lock" class="w-2.5 h-2.5"></i> Locked</span>`
-          : `<span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Locks in ${remaining}s</span>
-             <button onclick="deleteCommitmentTask('${t.id}')" class="text-slate-500 hover:text-rose-400 p-0.5"><i data-lucide="trash-2" class="w-3 h-3"></i></button>`
+          ? `<span class="text-[8px] font-extrabold px-1.5 py-0.5 rounded bg-rose-950/50 text-rose-300 border border-rose-800/40 flex items-center gap-0.5"><i data-lucide="lock" class="w-2.5 h-2.5"></i> Locked</span>` 
+          : `<span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Locks in ${remaining}s</span>`
         }
+        <button onclick="deleteCommitmentTask('${t.id}')" class="text-slate-500 hover:text-rose-400 p-0.5"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
       </div>
     `;
     list.appendChild(div);
@@ -244,6 +227,7 @@ function renderActionsList(rec, isPrior, isFuture, isWeekend) {
   const actC = document.getElementById('actionsList');
   if (!actC) return;
   actC.innerHTML = '';
+
   DAILY_ACTIONS.forEach(a => {
     const checked = !isPrior && !isFuture && !!rec.actions[a.id];
     const badge = (a.weekdayOnly && isWeekend) ? '<span class="text-[8px] px-1 rounded bg-slate-800 text-slate-400 ml-1">Weekend Off</span>' : '';
@@ -267,6 +251,7 @@ function renderWeeklySprintsList(rec, isPrior, isFuture) {
   const weeklyC = document.getElementById('weeklySprintsList');
   if (!weeklyC) return;
   weeklyC.innerHTML = '';
+
   const weeklyDrone = getWeeklyStat('drone', currentDate);
   const weeklyPt = getWeeklyStat('pt', currentDate);
   const weeklyPrehab = getWeeklyStat('prehab', currentDate);
@@ -299,6 +284,7 @@ function renderBoundariesList(rec, isPrior, isFuture) {
   const bndC = document.getElementById('boundariesList');
   if (!bndC) return;
   bndC.innerHTML = '';
+
   BOUNDARIES.forEach(b => {
     const failed = !isPrior && !isFuture && !!rec.boundaries[b.id];
     const div = document.createElement('div');
@@ -315,9 +301,10 @@ function renderBoundariesList(rec, isPrior, isFuture) {
 }
 
 function renderMealsList(rec, isPrior, isFuture) {
-  const mlC = document.getElementById('mealsContainer');
-  if (!mlC) return;
-  mlC.innerHTML = '';
+  const mIC = document.getElementById('mealsContainer');
+  if (!mIC) return;
+  mIC.innerHTML = '';
+
   MEALS.forEach(m => {
     const mD = rec.meals[m.id] || { text: '', cal: 0, p: 0, c: 0, f: 0, diningHall: 'DLG', portion: '1.0', isUcsb: true, items: [] };
     const card = document.createElement('div');
@@ -336,27 +323,27 @@ function renderMealsList(rec, isPrior, isFuture) {
       `).join('');
 
       itemsHtml = `
-        <details class="group bg-slate-900/60 border border-slate-800/80 rounded-lg p-2 text-[10px] mt-1.5">
-          <summary class="cursor-pointer text-amber-400 font-bold flex items-center justify-between">
-            <span class="flex items-center gap-1"><i data-lucide="check-check" class="w-3 h-3 text-emerald-400"></i> View Deconstructed Items & Audit</span>
-            <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500 group-open:rotate-180 transition-transform"></i>
-          </summary>
-          <div class="pt-2 overflow-x-auto">
-            <table class="w-full text-left">
-              <thead>
-                <tr class="text-[8px] text-slate-400 border-b border-slate-800">
-                  <th class="pb-1">Item</th>
-                  <th class="pb-1 text-right">P</th>
-                  <th class="pb-1 text-right">C</th>
-                  <th class="pb-1 text-right">F</th>
-                  <th class="pb-1 text-right">Cal</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-            ${mD.auditNote ? `<div class="mt-2 text-[8px] text-slate-400 italic border-t border-slate-800 pt-1 leading-normal"><span class="text-emerald-400 font-bold">Audit Check:</span> ${mD.auditNote}</div>` : ''}
-          </div>
-        </details>
+      <details class="group bg-slate-900/60 border border-slate-800/80 rounded-lg p-2 text-[10px] mt-1.5">
+        <summary class="cursor-pointer text-amber-400 font-bold flex items-center justify-between">
+          <span class="flex items-center gap-1"><i data-lucide="check-check" class="w-3 h-3 text-emerald-400"></i> View Deconstructed Items & Audit</span>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="pt-2 overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="text-[8px] text-slate-400 border-b border-slate-800">
+                <th class="pb-1">Item</th>
+                <th class="pb-1 text-right">P</th>
+                <th class="pb-1 text-right">C</th>
+                <th class="pb-1 text-right">F</th>
+                <th class="pb-1 text-right">Cal</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          ${mD.auditNote ? `<div class="mt-2 text-[8px] text-slate-400 italic border-t border-slate-800 pt-1 leading-normal"><span class="text-emerald-400 font-bold">Audit Check:</span> ${mD.auditNote}</div>` : ''}
+        </div>
+      </details>
       `;
     }
 
@@ -370,7 +357,6 @@ function renderMealsList(rec, isPrior, isFuture) {
           <span class="text-rose-400 font-bold">${mD.f || 0}g F</span>
         </div>
       </div>
-
       <div class="flex gap-1.5 items-center">
         <input type="text" value="${mD.text || ''}" ${isPrior || isFuture ? 'disabled' : ''} placeholder="Describe foods (e.g. 2 scoops beef fajitas, rice, beans)..." onchange="updateMealField('${m.id}', 'text', this.value)" class="flex-1 bg-slate-900/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-600" />
         <label class="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white cursor-pointer transition flex items-center justify-center shrink-0 border border-slate-700">
@@ -409,14 +395,16 @@ function renderMealsList(rec, isPrior, isFuture) {
           </div>
         </div>
       </div>
-      
+
       <div id="preview_${m.id}" class="flex gap-1 overflow-x-auto custom-scroll"></div>
 
       <div class="flex items-center gap-1.5 pt-1">
-        <button type="button" ${isPrior || isFuture ? 'disabled' : ''} onclick="triggerLocalEst('${m.id}')" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 rounded-lg border border-slate-700 transition">⚡ Quick Est</button>
+        <button type="button" ${isPrior || isFuture ? 'disabled' : ''} onclick="triggerLocalEst('${m.id}')" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 rounded-lg border border-slate-700 transition">
+          Quick Est
+        </button>
         <button type="button" id="btnCloud_${m.id}" ${isPrior || isFuture ? 'disabled' : ''} onclick="triggerCloudAiEst('${m.id}')" class="flex-[1.6] py-1.5 bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-blue-900/40 hover:from-purple-900/60 text-[10px] font-bold text-indigo-300 rounded-lg border border-indigo-500/40 transition flex items-center justify-center gap-1">
           <i data-lucide="sparkles" class="w-3 h-3 text-indigo-400"></i>
-          <span>✨ Deconstruct & Audit</span>
+          <span>Deconstruct & Audit</span>
         </button>
       </div>
 
@@ -426,10 +414,9 @@ function renderMealsList(rec, isPrior, isFuture) {
         <div><input type="number" value="${mD.c || ''}" ${isPrior || isFuture ? 'disabled' : ''} placeholder="Carb" onchange="updateMealField('${m.id}', 'c', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded px-1 py-0.5 text-[9px] text-cyan-400 text-center font-bold" /></div>
         <div><input type="number" value="${mD.f || ''}" ${isPrior || isFuture ? 'disabled' : ''} placeholder="Fat" onchange="updateMealField('${m.id}', 'f', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded px-1 py-0.5 text-[9px] text-rose-400 text-center font-bold" /></div>
       </div>
-
       ${itemsHtml}
     `;
-    mlC.appendChild(card);
+    mIC.appendChild(card);
     setTimeout(() => renderImagePreviews(m.id), 0);
   });
 }
@@ -444,7 +431,7 @@ function renderImagePreviews(mealId) {
   if (!container) return;
   container.innerHTML = '';
   const files = mealImages[mealId] || [];
-  files.forEach((file) => {
+  files.forEach(file => {
     const url = URL.createObjectURL(file);
     const img = document.createElement('img');
     img.src = url;
@@ -473,16 +460,15 @@ UCSB NetNutrition Guidelines:
 - Portola: International cuisine, comfort homestyle entrees, grill station.
 - Ortega: Grab-and-go specialty rice bowls, noodles, and wraps.
 Account for standard dining hall flat-top cooking oils (+5-10g fat per meat/veggie portion) and cafeteria ladle serving sizes.
-` : ''}
+` : ""}
 
 TASK:
 1. Deconstruct the meal into its discrete items and estimated realistic gram/ounce yields.
 2. Calculate individual calories, protein (P), carbs (C), and fat (F) for each item.
 3. DOUBLE-CHECK & SELF-AUDIT STEP:
-   - Verify that lean meats yield ~7g-8.5g protein per cooked oz (not raw).
-   - Ensure (4 * total_P) + (4 * total_C) + (9 * total_F) equals total_calories within +/- 5%.
-   - Ensure high precision on protein for athletic hypertrophy.
-
+- Verify that lean meats yield ~7g-8.5g protein per cooked oz (not raw).
+- Ensure (4 * total_P) + (4 * total_C) + (9 * total_F) equals total_calories within +/- 5%.
+- Ensure high precision on protein for athletic hypertrophy.
 If photos are attached and the food is covered or too blurry to identify, set "needs_more_photos": true with a short "reason".
 
 OUTPUT FORMAT: Strict valid JSON with NO markdown or code fences:
@@ -500,6 +486,7 @@ OUTPUT FORMAT: Strict valid JSON with NO markdown or code fences:
 }`;
 
   const parts = [{ text: prompt }];
+
   for (const file of files) {
     const base64Data = await new Promise((resolve) => {
       const reader = new FileReader();
@@ -517,7 +504,7 @@ OUTPUT FORMAT: Strict valid JSON with NO markdown or code fences:
     const apiKey = keys[keyIdx].trim();
 
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: parts }] })
@@ -525,24 +512,22 @@ OUTPUT FORMAT: Strict valid JSON with NO markdown or code fences:
 
       if (res.status === 429 || res.status === 403 || res.status === 400) {
         const errJson = await res.json().catch(() => ({}));
-        console.warn(`Key #${keyIdx + 1} (${apiKey.slice(0, 7)}...) hit error:`, errJson.error?.message || res.status);
+        console.warn(`Key #${keyIdx + 1} hit error:`, errJson.error?.message || res.status);
         lastError = new Error(errJson.error?.message || `HTTP ${res.status}`);
         continue;
       }
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
       const data = await res.json();
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!rawText) throw new Error("Empty response from Gemini.");
 
-      const cleanJson = rawText.replace(/```json|```/g, '').trim();
+      const cleanJson = rawText.replace(/^```json|```/g, "").trim();
       const parsed = JSON.parse(cleanJson);
 
       userGoals.activeKeyIndex = keyIdx;
       localStorage.setItem('protocol_os_goals', JSON.stringify(userGoals));
       return parsed;
-
     } catch (err) {
       console.warn(`Attempt with key #${keyIdx + 1} failed:`, err.message);
       lastError = err;
@@ -570,7 +555,7 @@ async function triggerCloudAiEst(mId) {
   const btn = document.getElementById(`btnCloud_${mId}`);
   const orig = btn ? btn.innerHTML : '';
   if (btn) {
-    btn.innerHTML = `<span class="animate-pulse">Auditing NetNutrition...</span>`;
+    btn.innerHTML = '<span class="animate-pulse">Auditing NetNutrition...</span>';
     btn.disabled = true;
   }
 
@@ -584,13 +569,12 @@ async function triggerCloudAiEst(mId) {
         m.p = Math.round(Number(est.p) || 0);
         m.c = Math.round(Number(est.c) || 0);
         m.f = Math.round(Number(est.f) || 0);
-        m.items = est.items || [];
-        m.auditNote = est.audit_note || '';
-
-        mealImages[mId] = [];
-        syncAutomations(rec);
-        persist();
       }
+      m.items = est.items || [];
+      m.auditNote = est.audit_note || '';
+      mealImages[mId] = [];
+      syncAutomations(rec);
+      persist();
     }
   } catch (err) {
     alert(`Deconstruction Error: ${err.message}`);
@@ -598,8 +582,8 @@ async function triggerCloudAiEst(mId) {
     if (btn) {
       btn.innerHTML = orig;
       btn.disabled = false;
-      lucide.createIcons();
     }
+    lucide.createIcons();
   }
 }
 
@@ -607,7 +591,8 @@ function parseLocalMacros(queryText) {
   const text = queryText.toLowerCase().trim();
   if (!text) return { cal: 0, p: 0, c: 0, f: 0 };
   let cal = 0, p = 0, c = 0, f = 0;
-  const ozMatch = text.match(/(\d+(\.\d+)?)\s*oz\s*(chicken|breast|steak|beef|salmon|turkey|tuna|fish)/);
+
+  const ozMatch = text.match(/(\d+(\.\d+)?)\s*oz\s*(chicken breast|steak|beef|salmon|turkey|tuna|fish)/);
   if (ozMatch) {
     const oz = parseFloat(ozMatch[1]);
     const isC = text.includes('chicken') || text.includes('turkey');
@@ -615,15 +600,32 @@ function parseLocalMacros(queryText) {
     f += Math.round(oz * (isC ? 1.5 : 4));
     cal += Math.round(oz * (isC ? 45 : 65));
   }
+
   const eggMatch = text.match(/(\d+)\s*(whole\s*)?eggs?/);
-  if (eggMatch) { const ct = parseInt(eggMatch[1], 10); cal += ct * 72; p += ct * 6; f += ct * 5; c += ct * 0.5; }
+  if (eggMatch) { 
+    const ct = parseInt(eggMatch[1], 10); 
+    cal += ct * 72; p += ct * 6; f += ct * 5; c += ct * 0.5; 
+  }
+
   const scoopMatch = text.match(/(\d+)\s*scoops?/);
-  if (scoopMatch) { const ct = parseInt(scoopMatch[1], 10); cal += ct * 125; p += ct * 25; c += ct * 3; f += ct * 1.5; }
+  if (scoopMatch) { 
+    const ct = parseInt(scoopMatch[1], 10); 
+    cal += ct * 125; p += ct * 25; c += ct * 3; f += ct * 1.5; 
+  }
+
   const toastMatch = text.match(/(\d+)\s*slices?\s*(bread|toast|sourdough)?/);
-  if (toastMatch) { const ct = parseInt(toastMatch[1], 10); cal += ct * 80; c += ct * 15; p += ct * 3; f += ct * 1; }
+  if (toastMatch) { 
+    const ct = parseInt(toastMatch[1], 10); 
+    cal += ct * 80; c += ct * 15; p += ct * 3; f += ct * 1; 
+  }
+
   if (text.includes("greek yogurt")) { cal += 130; p += 18; c += 7; }
   if (text.includes("fairlife")) { cal += 150; p += 30; c += 6; f += 2.5; }
-  if (text.includes("chipotle")) { const d = text.includes("double"); cal += d ? 950 : 750; p += d ? 55 : 38; c += 80; f += d ? 32 : 24; }
+  if (text.includes("chipotle")) { 
+    const d = text.includes("double"); 
+    cal += d ? 950 : 750; p += d ? 55 : 38; c += 80; f += d ? 32 : 24; 
+  }
+
   if (cal === 0 && p === 0) { cal = 400; p = 25; c = 45; f = 14; }
   return { cal, p, c, f };
 }
@@ -659,9 +661,9 @@ function computeDynamicCalories(rec) {
   const hIn = userGoals.height || 71;
   const age = userGoals.age || 19;
   const surplus = userGoals.surplus || 250;
+
   const wKg = w * 0.453592;
   const hCm = hIn * 2.54;
-
   const bmr = (10 * wKg) + (6.25 * hCm) - (5 * age) + 5;
   const neat = bmr * 0.20;
 

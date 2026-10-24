@@ -1,6 +1,7 @@
 // ==========================================
 // STATE MANAGEMENT & DATA PERSISTENCE
 // ==========================================
+
 function getDayKey(date) {
   const d = new Date(date);
   const year = d.getFullYear();
@@ -33,7 +34,7 @@ const DAILY_ACTIONS = [
   { id: "a_cardio", label: "Light Cardio Everyday", desc: "Zone 2 walk, run, swim, or cycle" },
   { id: "a_water", label: "3+ Liters Water + Electrolytes", desc: "Tracked automatically via bottles", isWaterLinked: true },
   { id: "a_protein", label: "Hit Protein Target (160g+)", desc: "Calculated from meal logs", isProteinLinked: true },
-  { id: "a_sleep", label: "Circadian Schedule (Sleep 12–12:30 AM)", desc: "Maintain sleep/wake rhythm", weekdayOnly: true },
+  { id: "a_sleep", label: "Circadian Schedule (Sleep 12-12:30 AM)", desc: "Maintain sleep/wake rhythm", weekdayOnly: true },
   { id: "a_shower", label: "Shower Post-Workout", desc: "Wash away sweat to prevent breakouts" }
 ];
 
@@ -48,11 +49,9 @@ let currentDate = new Date();
 let currentMainTab = 'today';
 let appData = JSON.parse(localStorage.getItem('protocol_os_master') || '{}');
 let workoutHistory = JSON.parse(localStorage.getItem('protocol_os_workout_history') || '{}');
-
-// Custom user presets stored in localStorage
 let customPresets = JSON.parse(localStorage.getItem('protocol_os_presets') || 'null');
-
 let userGoals = JSON.parse(localStorage.getItem('protocol_os_goals') || '{}');
+
 userGoals = Object.assign({
   calories: 2600,
   protein: 160,
@@ -72,7 +71,7 @@ if (userGoals.apiKey && (!userGoals.apiKeys || userGoals.apiKeys.length === 0)) 
 }
 
 function isDateBeforeStart(date) { return getDayKey(date) < START_DATE_KEY; }
-function isDateInFuture(date) { 
+function isDateInFuture(date) {
   const today = new Date(); today.setHours(0,0,0,0);
   const target = new Date(date); target.setHours(0,0,0,0);
   return target > today;
@@ -81,7 +80,14 @@ function isDateInFuture(date) {
 function getDayRecord(dateKey) {
   if (!appData[dateKey]) {
     appData[dateKey] = {
-      boundaries: {}, actions: {}, water: { b1000: 0, b710: 0 }, weight: null, pt: false, prehab: false, climbing: false, drone: { done: false, notes: '' },
+      boundaries: {},
+      actions: {},
+      water: { b1000: 0, b710: 0 },
+      weight: null,
+      pt: false,
+      prehab: false,
+      climbing: false,
+      drone: { done: false, notes: "" },
       customTasks: [],
       meals: {
         m_breakfast: { text: '', cal: 0, p: 0, c: 0, f: 0, diningHall: 'DLG', portion: '1.0', isUcsb: true, items: [] },
@@ -89,13 +95,13 @@ function getDayRecord(dateKey) {
         m_dinner: { text: '', cal: 0, p: 0, c: 0, f: 0, diningHall: 'DLG', portion: '1.0', isUcsb: true, items: [] },
         m_snacks: { text: '', cal: 0, p: 0, c: 0, f: 0, diningHall: 'DLG', portion: '1.0', isUcsb: false, items: [] }
       },
-      workout: { 
-        title: "Custom Session", 
-        completed: false, 
-        startTime: null, 
-        durationSeconds: 0, 
-        restEndTime: null, 
-        exercises: [] 
+      workout: {
+        title: "Custom Session",
+        completed: false,
+        startTime: null,
+        durationSeconds: 0,
+        restEndTime: null,
+        exercises: []
       },
       academics: { courseNotes: [], brainstorms: [] }
     };
@@ -108,10 +114,9 @@ function getDayRecord(dateKey) {
   if (!rec.academics.brainstorms) rec.academics.brainstorms = [];
   if (!rec.workout) rec.workout = { title: "Custom Session", completed: false, startTime: null, durationSeconds: 0, restEndTime: null, exercises: [] };
   if (!rec.workout.exercises) rec.workout.exercises = [];
-  if (!rec.drone) rec.drone = { done: false, notes: '' };
+  if (!rec.drone) rec.drone = { done: false, notes: "" };
   if (!rec.water) rec.water = { b1000: 0, b710: 0 };
   if (!rec.meals) rec.meals = {};
-
   return rec;
 }
 
@@ -127,7 +132,7 @@ function shiftDate(days) {
   render();
 }
 
-// ====== ROUTING & NAVIGATION ======
+// ====== RESPONSIVE ROUTING & NAVIGATION ======
 function toggleNavDropdown() {
   const menu = document.getElementById('navDropdownMenu');
   if (menu) menu.classList.toggle('hidden');
@@ -142,6 +147,8 @@ function selectDropdownTab(tab, label) {
 
 function switchMainTab(tab) {
   currentMainTab = tab;
+
+  // Toggle tab view containers
   ['today', 'matrix', 'athletics', 'nutrition', 'academics'].forEach(t => {
     const el = document.getElementById(`view_${t}`);
     if (el) el.classList.toggle('hidden', t !== tab);
@@ -151,25 +158,38 @@ function switchMainTab(tab) {
   const btnMatrix = document.getElementById('navBtn_matrix');
   const ddTrigger = document.getElementById('dropdownNavTrigger');
 
-  if (tab === 'today') {
-    if (btnToday) btnToday.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-    if (btnMatrix) btnMatrix.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
-    if (ddTrigger) ddTrigger.className = "h-full px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-950/80 border border-slate-800 text-slate-300 hover:border-slate-700 flex items-center gap-1.5 transition";
-  } else if (tab === 'matrix') {
-    if (btnMatrix) btnMatrix.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30";
-    if (btnToday) btnToday.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
-    if (ddTrigger) ddTrigger.className = "h-full px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-950/80 border border-slate-800 text-slate-300 hover:border-slate-700 flex items-center gap-1.5 transition";
-  } else {
-    if (btnToday) btnToday.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
-    if (btnMatrix) btnMatrix.className = "py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
-    if (ddTrigger) ddTrigger.className = "h-full px-3 py-2.5 rounded-xl text-xs font-bold bg-orange-950/30 border border-orange-500/40 text-orange-300 flex items-center gap-1.5 transition";
+  // Preserve flex-1 width on Today button across tab switches
+  if (btnToday) {
+    if (tab === 'today') {
+      btnToday.className = "flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+    } else {
+      btnToday.className = "flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200 bg-transparent border border-transparent";
+    }
+  }
+
+  // Preserve compact icon size on Matrix button across tab switches
+  if (btnMatrix) {
+    if (tab === 'matrix') {
+      btnMatrix.className = "w-9 h-9 shrink-0 rounded-xl transition flex items-center justify-center bg-cyan-500/20 text-cyan-400 border border-cyan-500/30";
+    } else {
+      btnMatrix.className = "w-9 h-9 shrink-0 rounded-xl transition flex items-center justify-center text-slate-400 hover:text-slate-200 bg-slate-950/70 border border-slate-800";
+    }
+  }
+
+  // Highlight Dropdown Trigger when a sub-module is active
+  if (ddTrigger) {
+    if (tab !== 'today' && tab !== 'matrix') {
+      ddTrigger.className = "h-9 px-3 rounded-xl text-xs font-bold bg-orange-950/40 border border-orange-500/50 text-orange-300 flex items-center gap-1.5 transition";
+    } else {
+      ddTrigger.className = "h-9 px-3 rounded-xl text-xs font-bold bg-slate-950/80 border border-slate-800 text-slate-300 hover:border-slate-700 flex items-center gap-1.5 transition";
+    }
   }
 
   render();
 }
 
-function getWaterVolume(water) { 
-  return ((water?.b1000 || 0) * 1000) + ((water?.b710 || 0) * 710); 
+function getWaterVolume(water) {
+  return ((water?.b1000 || 0) * 1000) + ((water?.b710 || 0) * 710);
 }
 
 function syncAutomations(rec) {
@@ -181,11 +201,9 @@ function evaluateDayStatus(rec, date) {
   if (isDateBeforeStart(date)) return "unactivated";
   if (isDateInFuture(date)) return "locked";
   if (Object.values(rec.boundaries || {}).some(v => v === true)) return "breached";
-
   const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
   const dailyActionsDone = DAILY_ACTIONS.every(a => (a.weekdayOnly && isWeekend) || rec.actions[a.id]);
   const morningTasksDone = !rec.customTasks || rec.customTasks.every(t => t.done);
-
   return (dailyActionsDone && morningTasksDone) ? "complete" : "pending";
 }
 
@@ -244,12 +262,10 @@ function renderKeyPoolList() {
   const keys = userGoals.apiKeys || [];
   badge.innerText = `${keys.length} Key${keys.length === 1 ? '' : 's'}`;
   list.innerHTML = '';
-
   if (keys.length === 0) {
-    list.innerHTML = `<div class="text-[10px] text-slate-500 italic py-1">No API keys in pool. Add at least one to enable Cloud AI parsing.</div>`;
+    list.innerHTML = '<div class="text-[10px] text-slate-500 italic py-1">No API keys in pool. Add at least one to enable Cloud AI parsing.</div>';
     return;
   }
-
   keys.forEach((k, idx) => {
     const isCurrent = idx === (userGoals.activeKeyIndex % keys.length);
     const masked = k.slice(0, 7) + '...' + k.slice(-4);
@@ -280,11 +296,15 @@ function render() {
   const startNotice = document.getElementById('protocolStartNotice');
   if (startNotice) startNotice.innerText = `Protocol Active: ${START_DATE_KEY}`;
 
-  if (currentMainTab === 'today' && typeof renderTodayTab === 'function') renderTodayTab(rec);
-  if (currentMainTab === 'matrix' && typeof renderMatrixCalendar === 'function') renderMatrixCalendar();
-  if (currentMainTab === 'athletics' && typeof renderAthleticsTab === 'function') renderAthleticsTab(rec);
-  if (currentMainTab === 'nutrition' && typeof renderNutritionTab === 'function') renderNutritionTab(rec);
-  if (currentMainTab === 'academics' && typeof renderAcademicsTab === 'function') renderAcademicsTab(rec);
+  try {
+    if (currentMainTab === 'today' && typeof renderTodayTab === 'function') renderTodayTab(rec);
+    if (currentMainTab === 'matrix' && typeof renderMatrixCalendar === 'function') renderMatrixCalendar();
+    if (currentMainTab === 'athletics' && typeof renderAthleticsTab === 'function') renderAthleticsTab(rec);
+    if (currentMainTab === 'nutrition' && typeof renderNutritionTab === 'function') renderNutritionTab(rec);
+    if (currentMainTab === 'academics' && typeof renderAcademicsTab === 'function') renderAcademicsTab(rec);
+  } catch (err) {
+    console.error("Render execution error:", err);
+  }
 
   lucide.createIcons();
 }
@@ -320,7 +340,6 @@ function saveSettings() {
   userGoals.fat = parseInt(document.getElementById('settingGoalFat').value, 10) || 70;
   userGoals.defaultRestSeconds = parseInt(document.getElementById('settingDefaultRest').value, 10) || 90;
   userGoals.adaptiveRestEnabled = document.getElementById('settingAdaptiveRest').checked;
-
   localStorage.setItem('protocol_os_goals', JSON.stringify(userGoals));
   toggleSettingsModal();
   render();
@@ -353,10 +372,10 @@ function importData(e) {
         if (i.goals) userGoals = i.goals;
         if (i.workoutHistory) workoutHistory = i.workoutHistory;
         if (i.customPresets) customPresets = i.customPresets;
-        if (i.startDate) {
-          START_DATE_KEY = i.startDate;
-          localStorage.setItem('protocol_start_date', START_DATE_KEY);
-        }
+      }
+      if (i.startDate) {
+        START_DATE_KEY = i.startDate;
+        localStorage.setItem('protocol_start_date', START_DATE_KEY);
       } else {
         appData = i;
       }
@@ -365,4 +384,37 @@ function importData(e) {
     } catch (err) { alert('Invalid backup JSON file.'); }
   };
   r.readAsText(e.target.files[0]);
+}
+
+// Global dynamic energy balance calculation
+function computeDynamicCalories(rec) {
+  let w = rec.weight;
+  if (!w) {
+    const datesWithW = Object.keys(appData).filter(k => appData[k].weight).sort();
+    w = datesWithW.length ? appData[datesWithW[datesWithW.length - 1]].weight : 165;
+  }
+  const hIn = userGoals.height || 71;
+  const age = userGoals.age || 19;
+  const surplus = userGoals.surplus || 250;
+
+  const wKg = w * 0.453592;
+  const hCm = hIn * 2.54;
+  const bmr = (10 * wKg) + (6.25 * hCm) - (5 * age) + 5;
+  const neat = bmr * 0.20;
+
+  let exercise = 0;
+  if (rec.workout?.completed) exercise += 300;
+  if (rec.actions?.['a_cardio']) exercise += 200;
+  if (rec.climbing) exercise += 350;
+
+  const total = Math.round(bmr + neat + exercise + surplus);
+  return { bmr: Math.round(bmr), neat: Math.round(neat), exercise, surplus, total };
+}
+
+function applyDynamicCalorieGoal() {
+  const rec = getDayRecord(getDayKey(currentDate));
+  const calc = computeDynamicCalories(rec);
+  userGoals.calories = calc.total;
+  localStorage.setItem('protocol_os_goals', JSON.stringify(userGoals));
+  persist();
 }
